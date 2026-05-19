@@ -1,0 +1,412 @@
+import { router } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useColorScheme } from 'nativewind';
+import { api, Empresa, EmpresaInput, Grupo } from '../services/api';
+import { AppHeader } from '../components/app-header';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type GrupoModal = { visible: boolean; editing: Grupo | null; nome: string };
+type EmpresaModal = {
+  visible: boolean;
+  editing: Empresa | null;
+  grupoId: number | null;
+  nome_fantasia: string;
+  razao_social: string;
+  cnpj: string;
+};
+
+const EMPTY_GRUPO: GrupoModal = { visible: false, editing: null, nome: '' };
+const EMPTY_EMPRESA: EmpresaModal = {
+  visible: false, editing: null, grupoId: null,
+  nome_fantasia: '', razao_social: '', cnpj: '',
+};
+
+// ─── CNPJ helpers ────────────────────────────────────────────────────────────
+
+function maskCNPJ(value: string): string {
+  const d = value.replace(/\D/g, '').slice(0, 14);
+  return d
+    .replace(/^(\d{2})(\d)/, '$1.$2')
+    .replace(/^(\d{2}\.\d{3})(\d)/, '$1.$2')
+    .replace(/^(\d{2}\.\d{3}\.\d{3})(\d)/, '$1/$2')
+    .replace(/^(\d{2}\.\d{3}\.\d{3}\/\d{4})(\d)/, '$1-$2');
+}
+
+function validateCNPJ(cnpj: string): boolean {
+  return cnpj.replace(/\D/g, '').length === 14;
+}
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
+
+export default function SelectEmpresaScreen() {
+  const { colorScheme } = useColorScheme();
+  const isDark = colorScheme === 'dark';
+
+  const [grupos, setGrupos] = useState<Grupo[]>([]);
+  const [empresasByGrupo, setEmpresasByGrupo] = useState<Record<number, Empresa[]>>({});
+  const [expanded, setExpanded] = useState<Record<number, boolean>>({});
+  const [loading, setLoading] = useState(true);
+  const [erro, setErro] = useState('');
+  const [grupoModal, setGrupoModal] = useState<GrupoModal>(EMPTY_GRUPO);
+  const [empresaModal, setEmpresaModal] = useState<EmpresaModal>(EMPTY_EMPRESA);
+  const [saving, setSaving] = useState(false);
+
+  // ─── Load ──────────────────────────────────────────────────────────────────
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setErro('');
+    try {
+      const res = await api.grupos.list();
+      const gs = res.grupos ?? [];
+      setGrupos(gs);
+      const map: Record<number, Empresa[]> = {};
+      await Promise.all(gs.map(async (g) => {
+        const er = await api.empresas.list(g.id);
+        map[g.id] = er.empresas ?? [];
+      }));
+      setEmpresasByGrupo(map);
+    } catch (e: any) {
+      setErro(e.message ?? 'Erro ao carregar dados');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const toggle = (id: number) =>
+    setExpanded(p => ({ ...p, [id]: p[id] === false ? true : false }));
+
+  const isExpanded = (id: number) => expanded[id] !== false;
+
+  // ─── Grupo CRUD ────────────────────────────────────────────────────────────
+
+  const saveGrupo = async () => {
+    if (!grupoModal.nome.trim()) return;
+    setSaving(true);
+    try {
+      if (grupoModal.editing) {
+        await api.grupos.update(grupoModal.editing.id, grupoModal.nome.trim());
+      } else {
+        await api.grupos.create(grupoModal.nome.trim());
+      }
+      setGrupoModal(EMPTY_GRUPO);
+      load();
+    } catch (e: any) {
+      Alert.alert('Erro', e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const confirmDeleteGrupo = (g: Grupo) => {
+    const del = () => api.grupos.delete(g.id).then(load).catch((e: any) => Alert.alert('Erro', e.message));
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Remover grupo "${g.nome}"?`)) del();
+    } else {
+      Alert.alert('Remover grupo', `Remover "${g.nome}"?`, [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Remover', style: 'destructive', onPress: del },
+      ]);
+    }
+  };
+
+  // ─── Empresa CRUD ──────────────────────────────────────────────────────────
+
+  const saveEmpresa = async () => {
+    const { editing, grupoId, nome_fantasia, razao_social, cnpj } = empresaModal;
+    if (!nome_fantasia.trim() || !razao_social.trim() || !grupoId || !validateCNPJ(cnpj)) return;
+    setSaving(true);
+    try {
+      const data: EmpresaInput = {
+        grupo_id: grupoId,
+        nome_fantasia: nome_fantasia.trim(),
+        razao_social: razao_social.trim(),
+        cnpj: cnpj.trim(),
+      };
+      if (editing) {
+        await api.empresas.update(editing.id, data);
+      } else {
+        await api.empresas.create(data);
+      }
+      setEmpresaModal(EMPTY_EMPRESA);
+      load();
+    } catch (e: any) {
+      Alert.alert('Erro', e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const confirmDeleteEmpresa = (e: Empresa) => {
+    const del = () => api.empresas.delete(e.id).then(load).catch((err: any) => Alert.alert('Erro', err.message));
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Remover empresa "${e.nome_fantasia}"?`)) del();
+    } else {
+      Alert.alert('Remover empresa', `Remover "${e.nome_fantasia}"?`, [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Remover', style: 'destructive', onPress: del },
+      ]);
+    }
+  };
+
+  const selectEmpresa = (e: Empresa) =>
+    router.replace({ pathname: '/hub', params: { empresaId: e.id, empresaName: e.nome_fantasia, grupoId: e.grupo_id } } as any);
+
+  // ─── Render ────────────────────────────────────────────────────────────────
+
+  const ph = isDark ? '#4b5563' : '#bbb';
+
+  return (
+    <View className="flex-1 bg-slate-100 dark:bg-gray-950">
+      <AppHeader
+        right={
+          <TouchableOpacity
+            className="flex-row items-center gap-1.5 bg-[#3b5fe0] px-3.5 py-2 rounded-lg"
+            onPress={() => setGrupoModal({ visible: true, editing: null, nome: '' })}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="add" size={18} color="#fff" />
+            <Text className="text-white text-sm font-semibold">Novo Grupo</Text>
+          </TouchableOpacity>
+        }
+      />
+
+      {/* States */}
+      {loading ? (
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator size="large" color="#3b5fe0" />
+        </View>
+      ) : erro ? (
+        <View className="flex-1 items-center justify-center gap-3.5 p-8">
+          <Text className="text-base text-red-500 text-center">{erro}</Text>
+          <TouchableOpacity className="bg-[#3b5fe0] px-5 py-2.5 rounded-lg" onPress={load}>
+            <Text className="text-white font-semibold text-sm">Tentar novamente</Text>
+          </TouchableOpacity>
+        </View>
+      ) : grupos.length === 0 ? (
+        <View className="flex-1 items-center justify-center gap-3.5 p-8">
+          <Ionicons name="business-outline" size={52} color={isDark ? '#374151' : '#d1d5db'} />
+          <Text className="text-base text-gray-400 dark:text-gray-600 text-center">Nenhum grupo cadastrado</Text>
+          <TouchableOpacity
+            className="bg-[#3b5fe0] px-5 py-2.5 rounded-lg"
+            onPress={() => setGrupoModal({ visible: true, editing: null, nome: '' })}
+          >
+            <Text className="text-white font-semibold text-sm">Criar primeiro grupo</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }} showsVerticalScrollIndicator={false}>
+          {grupos.map((grupo) => {
+            const open = isExpanded(grupo.id);
+            const empresas = empresasByGrupo[grupo.id] ?? [];
+            return (
+              <View key={grupo.id} className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
+
+                {/* Grupo row */}
+                <TouchableOpacity
+                  className="flex-row items-center px-3.5 py-3 gap-2"
+                  onPress={() => toggle(grupo.id)}
+                  activeOpacity={0.7}
+                >
+                  <View className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950 items-center justify-center">
+                    <Text className="text-base font-bold text-[#3b5fe0] dark:text-indigo-400">
+                      {grupo.nome.charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                  <Text className="flex-1 text-base font-semibold text-[#1e2d6e] dark:text-white" numberOfLines={1}>
+                    {grupo.nome}
+                  </Text>
+                  <View className="bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full overflow-hidden">
+                    <Text className="text-xs text-gray-400 dark:text-gray-500">{empresas.length}</Text>
+                  </View>
+                  <TouchableOpacity className="p-1" onPress={() => setGrupoModal({ visible: true, editing: grupo, nome: grupo.nome })} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Ionicons name="pencil-outline" size={17} color={isDark ? '#6b7280' : '#6b7280'} />
+                  </TouchableOpacity>
+                  <TouchableOpacity className="p-1" onPress={() => confirmDeleteGrupo(grupo)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Ionicons name="trash-outline" size={17} color="#ef4444" />
+                  </TouchableOpacity>
+                  <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={isDark ? '#4b5563' : '#9ca3af'} />
+                </TouchableOpacity>
+
+                {/* Empresas */}
+                {open && (
+                  <View className="border-t border-slate-100 dark:border-gray-800 pb-1.5">
+                    {empresas.length === 0 && (
+                      <Text className="text-xs text-gray-300 dark:text-gray-600 text-center py-3.5">
+                        Nenhuma empresa neste grupo
+                      </Text>
+                    )}
+                    {empresas.map((emp) => (
+                      <View key={emp.id} className="flex-row items-center px-3.5 py-2.5 border-b border-gray-50 dark:border-gray-800 gap-2">
+                        <TouchableOpacity className="flex-1" onPress={() => selectEmpresa(emp)} activeOpacity={0.7}>
+                          <Text className="text-sm font-semibold text-gray-700 dark:text-gray-200" numberOfLines={1}>
+                            {emp.nome_fantasia}
+                          </Text>
+                          <Text className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{emp.cnpj}</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          className="bg-indigo-50 dark:bg-indigo-950 px-3 py-1.5 rounded-md"
+                          onPress={() => selectEmpresa(emp)}
+                          activeOpacity={0.8}
+                        >
+                          <Text className="text-xs font-semibold text-[#3b5fe0] dark:text-indigo-400">Entrar</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity className="p-1" onPress={() => setEmpresaModal({ visible: true, editing: emp, grupoId: emp.grupo_id, nome_fantasia: emp.nome_fantasia, razao_social: emp.razao_social, cnpj: emp.cnpj })} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                          <Ionicons name="pencil-outline" size={16} color={isDark ? '#6b7280' : '#6b7280'} />
+                        </TouchableOpacity>
+                        <TouchableOpacity className="p-1" onPress={() => confirmDeleteEmpresa(emp)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                          <Ionicons name="trash-outline" size={16} color="#ef4444" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                    <TouchableOpacity
+                      className="flex-row items-center gap-1.5 px-3.5 pt-2.5 pb-1"
+                      onPress={() => setEmpresaModal({ ...EMPTY_EMPRESA, visible: true, grupoId: grupo.id })}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="add-circle-outline" size={17} color="#3b5fe0" />
+                      <Text className="text-xs font-medium text-[#3b5fe0] dark:text-indigo-400">Adicionar empresa</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            );
+          })}
+        </ScrollView>
+      )}
+
+      {/* ── Modal Grupo ───────────────────────────────────────────────────── */}
+      <Modal visible={grupoModal.visible} transparent animationType="fade" onRequestClose={() => setGrupoModal(EMPTY_GRUPO)}>
+        <View className="flex-1 justify-center items-center p-6" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
+          <View className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full" style={{ maxWidth: 420 }}>
+            <Text className="text-lg font-bold text-[#1e2d6e] dark:text-white mb-4">
+              {grupoModal.editing ? 'Editar Grupo' : 'Novo Grupo'}
+            </Text>
+            <Text className="text-xs text-gray-500 dark:text-gray-400 mb-1.5">Nome</Text>
+            <TextInput
+              className="h-11 border border-gray-300 dark:border-gray-600 rounded-lg px-3 text-base text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-900"
+              style={{ outline: 'none' } as any}
+              value={grupoModal.nome}
+              onChangeText={(v) => setGrupoModal(p => ({ ...p, nome: v }))}
+              placeholder="Ex: Grupo Alfa"
+              placeholderTextColor={ph}
+              autoFocus
+            />
+            <View className="flex-row gap-2.5 mt-5">
+              <TouchableOpacity
+                className="flex-1 h-11 rounded-xl border border-gray-200 dark:border-gray-600 items-center justify-center"
+                onPress={() => setGrupoModal(EMPTY_GRUPO)}
+              >
+                <Text className="text-sm font-medium text-gray-500 dark:text-gray-400">Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                className={`flex-1 h-11 rounded-xl bg-[#3b5fe0] items-center justify-center ${(!grupoModal.nome.trim() || saving) ? 'opacity-40' : ''}`}
+                onPress={saveGrupo}
+                disabled={!grupoModal.nome.trim() || saving}
+              >
+                {saving ? <ActivityIndicator color="#fff" size="small" /> : <Text className="text-sm font-semibold text-white">Salvar</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Modal Empresa ─────────────────────────────────────────────────── */}
+      <Modal visible={empresaModal.visible} transparent animationType="fade" onRequestClose={() => setEmpresaModal(EMPTY_EMPRESA)}>
+        <View className="flex-1 justify-center items-center p-6" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
+          <View className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full" style={{ maxWidth: 420 }}>
+            <Text className="text-lg font-bold text-[#1e2d6e] dark:text-white mb-4">
+              {empresaModal.editing ? 'Editar Empresa' : 'Nova Empresa'}
+            </Text>
+
+            {/* Nome Fantasia */}
+            <View className="mb-3">
+              <Text className="text-xs text-gray-500 dark:text-gray-400 mb-1.5">Nome Fantasia</Text>
+              <TextInput
+                className="h-11 border border-gray-300 dark:border-gray-600 rounded-lg px-3 text-base text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-900"
+                style={{ outline: 'none' } as any}
+                value={empresaModal.nome_fantasia}
+                onChangeText={(v) => setEmpresaModal(p => ({ ...p, nome_fantasia: v }))}
+                placeholderTextColor={ph}
+                autoFocus
+              />
+            </View>
+
+            {/* Razão Social */}
+            <View className="mb-3">
+              <Text className="text-xs text-gray-500 dark:text-gray-400 mb-1.5">Razão Social</Text>
+              <TextInput
+                className="h-11 border border-gray-300 dark:border-gray-600 rounded-lg px-3 text-base text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-900"
+                style={{ outline: 'none' } as any}
+                value={empresaModal.razao_social}
+                onChangeText={(v) => setEmpresaModal(p => ({ ...p, razao_social: v }))}
+                placeholderTextColor={ph}
+              />
+            </View>
+
+            {/* CNPJ */}
+            {(() => {
+              const digits = empresaModal.cnpj.replace(/\D/g, '');
+              const invalido = digits.length === 14 && !validateCNPJ(empresaModal.cnpj);
+              return (
+                <View className="mb-3">
+                  <View className="flex-row justify-between items-center mb-1.5">
+                    <Text className="text-xs text-gray-500 dark:text-gray-400">CNPJ</Text>
+                    <Text className="text-xs text-gray-400 dark:text-gray-500">{digits.length}/14</Text>
+                  </View>
+                  <TextInput
+                    className={`h-11 border rounded-lg px-3 text-base bg-white dark:bg-gray-900 ${invalido ? 'border-red-400 bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300' : 'border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-100'}`}
+                    style={{ outline: 'none' } as any}
+                    value={empresaModal.cnpj}
+                    onChangeText={(v) => setEmpresaModal(p => ({ ...p, cnpj: maskCNPJ(v) }))}
+                    placeholder="00.000.000/0001-00"
+                    placeholderTextColor={ph}
+                    keyboardType="numeric"
+                    maxLength={18}
+                  />
+                  {invalido && (
+                    <View className="flex-row items-center gap-1 mt-1">
+                      <Ionicons name="alert-circle-outline" size={13} color="#dc2626" />
+                      <Text className="text-xs text-red-600 dark:text-red-400">CNPJ inválido. Verifique os dígitos.</Text>
+                    </View>
+                  )}
+                </View>
+              );
+            })()}
+
+            <View className="flex-row gap-2.5 mt-5">
+              <TouchableOpacity
+                className="flex-1 h-11 rounded-xl border border-gray-200 dark:border-gray-600 items-center justify-center"
+                onPress={() => setEmpresaModal(EMPTY_EMPRESA)}
+              >
+                <Text className="text-sm font-medium text-gray-500 dark:text-gray-400">Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                className={`flex-1 h-11 rounded-xl bg-[#3b5fe0] items-center justify-center ${(!empresaModal.nome_fantasia.trim() || !empresaModal.razao_social.trim() || !validateCNPJ(empresaModal.cnpj) || saving) ? 'opacity-40' : ''}`}
+                onPress={saveEmpresa}
+                disabled={!empresaModal.nome_fantasia.trim() || !empresaModal.razao_social.trim() || !validateCNPJ(empresaModal.cnpj) || saving}
+              >
+                {saving ? <ActivityIndicator color="#fff" size="small" /> : <Text className="text-sm font-semibold text-white">Salvar</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
