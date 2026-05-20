@@ -23,9 +23,10 @@ import { logout } from '../services/api';
 
 interface AppHeaderProps {
   right?: React.ReactNode;
+  left?: React.ReactNode;
 }
 
-export function AppHeader({ right }: AppHeaderProps) {
+export function AppHeader({ right, left }: AppHeaderProps) {
   const { colorScheme, setColorScheme } = useColorScheme();
   const [menuOpen, setMenuOpen] = useState(false);
   const [logoutModal, setLogoutModal] = useState(false);
@@ -37,14 +38,15 @@ export function AppHeader({ right }: AppHeaderProps) {
         className="flex-row items-center justify-between px-5 pb-4 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800"
         style={{ paddingTop: 52, zIndex: 100, overflow: 'visible' }}
       >
-        {/* Logo + Brand */}
-        <View className="flex-row items-center">
+        {/* Logo + Brand + left slot */}
+        <View className="flex-row items-center gap-3">
           <Image
             source={require('../../assets/images/icon_logo_borda.png')}
             style={{ width: 28, height: 28, marginRight: 8 }}
             resizeMode="contain"
           />
           <Text className="text-lg font-bold text-[#1e2d6e] dark:text-white">Baustein</Text>
+          {left}
         </View>
 
         {/* Right side */}

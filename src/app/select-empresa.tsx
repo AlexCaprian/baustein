@@ -1,7 +1,6 @@
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Modal,
   Platform,
@@ -15,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from 'nativewind';
 import { api, Empresa, EmpresaInput, Grupo } from '../services/api';
 import { AppHeader } from '../components/app-header';
+import { LoadingOverlay } from '../components/loading-overlay';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -187,18 +187,14 @@ export default function SelectEmpresaScreen() {
       />
 
       {/* States */}
-      {loading ? (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="#3b5fe0" />
-        </View>
-      ) : erro ? (
+      {!loading && erro ? (
         <View className="flex-1 items-center justify-center gap-3.5 p-8">
           <Text className="text-base text-red-500 text-center">{erro}</Text>
           <TouchableOpacity className="bg-[#3b5fe0] px-5 py-2.5 rounded-lg" onPress={load}>
             <Text className="text-white font-semibold text-sm">Tentar novamente</Text>
           </TouchableOpacity>
         </View>
-      ) : grupos.length === 0 ? (
+      ) : !loading && grupos.length === 0 ? (
         <View className="flex-1 items-center justify-center gap-3.5 p-8">
           <Ionicons name="business-outline" size={52} color={isDark ? '#374151' : '#d1d5db'} />
           <Text className="text-base text-gray-400 dark:text-gray-600 text-center">Nenhum grupo cadastrado</Text>
@@ -209,7 +205,7 @@ export default function SelectEmpresaScreen() {
             <Text className="text-white font-semibold text-sm">Criar primeiro grupo</Text>
           </TouchableOpacity>
         </View>
-      ) : (
+      ) : !loading ? (
         <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }} showsVerticalScrollIndicator={false}>
           {grupos.map((grupo) => {
             const open = isExpanded(grupo.id);
@@ -288,7 +284,7 @@ export default function SelectEmpresaScreen() {
             );
           })}
         </ScrollView>
-      )}
+      ) : null}
 
       {/* ── Modal Grupo ───────────────────────────────────────────────────── */}
       <Modal visible={grupoModal.visible} transparent animationType="fade" onRequestClose={() => setGrupoModal(EMPTY_GRUPO)}>
@@ -319,7 +315,7 @@ export default function SelectEmpresaScreen() {
                 onPress={saveGrupo}
                 disabled={!grupoModal.nome.trim() || saving}
               >
-                {saving ? <ActivityIndicator color="#fff" size="small" /> : <Text className="text-sm font-semibold text-white">Salvar</Text>}
+                <Text className="text-sm font-semibold text-white">Salvar</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -401,12 +397,14 @@ export default function SelectEmpresaScreen() {
                 onPress={saveEmpresa}
                 disabled={!empresaModal.nome_fantasia.trim() || !empresaModal.razao_social.trim() || !validateCNPJ(empresaModal.cnpj) || saving}
               >
-                {saving ? <ActivityIndicator color="#fff" size="small" /> : <Text className="text-sm font-semibold text-white">Salvar</Text>}
+                <Text className="text-sm font-semibold text-white">Salvar</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
+
+      <LoadingOverlay visible={loading || saving} message={saving ? 'Salvando' : undefined} />
     </View>
   );
 }

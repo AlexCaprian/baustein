@@ -8,11 +8,11 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from 'nativewind';
-import { api, setToken } from '../services/api';
+import { api, setToken, setPerfil, setNome } from '../services/api';
+import { LoadingOverlay } from '../components/loading-overlay';
 
 function friendlyError(raw: string): string {
   if (raw === 'NETWORK_ERROR')
@@ -53,6 +53,8 @@ export default function LoginScreen() {
     try {
       const res = await api.login(usuario.trim(), password);
       setToken(res.token);
+      setPerfil(res.perfil);
+      setNome(res.nome);
       router.replace(res.redirect as any);
     } catch (e: any) {
       setErro(friendlyError(e.message ?? ''));
@@ -159,12 +161,11 @@ export default function LoginScreen() {
           onPress={handleLogin}
           disabled={loading}
         >
-          {loading
-            ? <ActivityIndicator color="#fff" size="small" />
-            : <Text className="text-white text-base font-semibold">Entrar</Text>}
+          <Text className="text-white text-base font-semibold">Entrar</Text>
         </TouchableOpacity>
 
       </View>
+      <LoadingOverlay visible={loading} message="Autenticando" />
     </KeyboardAvoidingView>
   );
 }
