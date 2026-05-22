@@ -12,8 +12,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from 'nativewind';
-import { AppHeader } from '../components/app-header';
-import { LoadingOverlay } from '../components/loading-overlay';
+import { AppHeader } from '@/components/layout/app-header';
+import { LoadingOverlay } from '@/components/ui/loading-overlay';
 import { api, getPerfil, Usuario, UsuarioInput } from '../services/api';
 
 const PERFIS = ['funcionario', 'admin'] as const;

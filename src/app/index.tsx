@@ -11,8 +11,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from 'nativewind';
-import { api, setToken, setPerfil, setNome } from '../services/api';
-import { LoadingOverlay } from '../components/loading-overlay';
+import { api, setToken, setPerfil, setNome, setEmpresaId } from '../services/api';
+import { LoadingOverlay } from '@/components/ui/loading-overlay';
 
 function friendlyError(raw: string): string {
   if (raw === 'NETWORK_ERROR')
@@ -55,6 +55,7 @@ export default function LoginScreen() {
       setToken(res.token);
       setPerfil(res.perfil);
       setNome(res.nome);
+      setEmpresaId(res.empresa_id);
       router.replace(res.redirect as any);
     } catch (e: any) {
       setErro(friendlyError(e.message ?? ''));

@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, Image, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Platform } from 'react-native';
 import { useColorScheme } from 'nativewind';
+import { logout } from '@/services/api';
 
 const THEME_KEY = 'baustein_theme';
 
@@ -19,14 +20,14 @@ export function loadSavedTheme(): 'light' | 'dark' | null {
   }
   return null;
 }
-import { logout } from '../services/api';
 
 interface AppHeaderProps {
   right?: React.ReactNode;
   left?: React.ReactNode;
+  topBar?: React.ReactNode;
 }
 
-export function AppHeader({ right, left }: AppHeaderProps) {
+export function AppHeader({ right, left, topBar }: AppHeaderProps) {
   const { colorScheme, setColorScheme } = useColorScheme();
   const [menuOpen, setMenuOpen] = useState(false);
   const [logoutModal, setLogoutModal] = useState(false);
@@ -35,13 +36,19 @@ export function AppHeader({ right, left }: AppHeaderProps) {
   return (
     <>
       <View
-        className="flex-row items-center justify-between px-5 pb-4 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800"
+        className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800"
         style={{ paddingTop: 52, zIndex: 100, overflow: 'visible' }}
       >
+        {topBar && (
+          <View className="px-5 pb-1">
+            {topBar}
+          </View>
+        )}
+        <View className="flex-row items-center justify-between px-5 pb-4">
         {/* Logo + Brand + left slot */}
         <View className="flex-row items-center gap-3">
           <Image
-            source={require('../../assets/images/icon_logo_borda.png')}
+            source={require('@/assets/images/icon_logo_borda.png')}
             style={{ width: 28, height: 28, marginRight: 8 }}
             resizeMode="contain"
           />
@@ -97,6 +104,7 @@ export function AppHeader({ right, left }: AppHeaderProps) {
           <View className="w-9 h-9 rounded-full bg-indigo-50 dark:bg-indigo-900 items-center justify-center">
             <Text className="text-xs font-bold text-[#3b5fe0] dark:text-indigo-300">AB</Text>
           </View>
+        </View>
         </View>
       </View>
 

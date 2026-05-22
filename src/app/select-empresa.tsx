@@ -13,8 +13,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from 'nativewind';
 import { api, Empresa, EmpresaInput, Grupo } from '../services/api';
-import { AppHeader } from '../components/app-header';
-import { LoadingOverlay } from '../components/loading-overlay';
+import { AppHeader } from '@/components/layout/app-header';
+import { LoadingOverlay } from '@/components/ui/loading-overlay';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

@@ -1,13 +1,14 @@
 import '../global.css';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import Head from 'expo-router/head';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ThemeProvider, DarkTheme, DefaultTheme } from '@react-navigation/native';
 import { useColorScheme as useRNColorScheme, View } from 'react-native';
 import { useColorScheme } from 'nativewind';
 import { Colors } from '@/constants/theme';
-import { getToken } from '../services/api';
-import { loadSavedTheme } from '../components/app-header';
+import { getToken } from '@/services/api';
+import { loadSavedTheme } from '@/components/layout/app-header';
+import { AppSplashScreen } from '@/components/ui/app-splash-screen';
 
 const PUBLIC_ROUTES = ['index'];
 
@@ -39,6 +40,14 @@ function AuthGuard() {
 
 export default function RootLayout() {
   const colorScheme = useRNColorScheme();
+  const [splashVisible, setSplashVisible] = useState(true);
+  const [splashDone, setSplashDone] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setSplashVisible(false), 1200);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <View style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? Colors.dark.background : Colors.light.background }}>
       <Head>
@@ -54,6 +63,13 @@ export default function RootLayout() {
         </Stack>
         <AuthGuard />
       </ThemeProvider>
+
+      {!splashDone && (
+        <AppSplashScreen
+          visible={splashVisible}
+          onHidden={() => setSplashDone(true)}
+        />
+      )}
     </View>
   );
 }

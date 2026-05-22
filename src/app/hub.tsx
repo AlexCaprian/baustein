@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { getPerfil, getNome } from '../services/api';
 import {
   Modal,
   ScrollView,
@@ -10,9 +9,9 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from 'nativewind';
-import { AppHeader } from '../components/app-header';
-import { api, Empresa } from '../services/api';
-import { LoadingOverlay } from '../components/loading-overlay';
+import { AppHeader } from '@/components/layout/app-header';
+import { api, Empresa, getNome, getPerfil, getEmpresaId } from '@/services/api';
+import { LoadingOverlay } from '@/components/ui/loading-overlay';
 
 const Y_AXIS_W = 36;
 const X_AXIS_H = 18;
@@ -189,13 +188,24 @@ export default function HubScreen() {
 
   const params = useLocalSearchParams<{ empresaId: string; empresaName: string; grupoId: string }>();
 
+  const isDev = getPerfil() === 'dev';
+
   const [empresaAtual, setEmpresaAtual] = useState<{ id: number; nome: string }>({
-    id: Number(params.empresaId),
-    nome: params.empresaName ?? 'Empresa',
+    id: Number(params.empresaId) || 0,
+    nome: params.empresaName ?? 'Carregando...',
   });
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [loadingEmpresas, setLoadingEmpresas] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  useEffect(() => {
+    if (isDev) return;
+    const id = getEmpresaId();
+    if (!id) return;
+    api.empresas.get(id).then((e) => {
+      setEmpresaAtual({ id: e.id, nome: e.nome_fantasia });
+    }).catch(() => {});
+  }, [isDev]);
 
   const loadEmpresas = useCallback(async () => {
     const grupoId = Number(params.grupoId);
@@ -292,28 +302,30 @@ export default function HubScreen() {
         />
       )}
 
-      <AppHeader right={EmpresaSelector} />
+      <AppHeader
+        right={EmpresaSelector}
+        topBar={
+          getPerfil() === 'dev' ? (
+            <TouchableOpacity
+              className="flex-row items-center gap-1"
+              onPress={() => router.replace('/select-empresa' as any)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="chevron-back" size={14} color={isDark ? '#9ca3af' : '#6b7280'} />
+              <Text className="text-xs text-gray-500 dark:text-gray-400">Selecionar empresa</Text>
+            </TouchableOpacity>
+          ) : undefined
+        }
+      />
 
       <LoadingOverlay visible={loadingEmpresas} />
 
       <ScrollView contentContainerStyle={{ padding: 24, paddingTop: 32, alignItems: 'center' }}>
         <View style={{ width: '100%', maxWidth: 1200 }}>
 
-          {/* Voltar para seleção de empresa (só dev) */}
-          {getPerfil() === 'dev' && (
-            <TouchableOpacity
-              className="flex-row items-center gap-1.5 border border-gray-200 dark:border-gray-700 px-3 py-1.5 rounded-lg bg-white dark:bg-gray-900 mb-5 self-start"
-              onPress={() => router.replace('/select-empresa' as any)}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="arrow-back-outline" size={15} color={isDark ? '#9ca3af' : '#6b7280'} />
-              <Text className="text-sm font-medium text-gray-600 dark:text-gray-400">Selecionar Empresa</Text>
-            </TouchableOpacity>
-          )}
-
           {/* Saudação */}
           <Text className="text-xl font-semibold text-[#2B3674] dark:text-white mb-5">
-            Olá, {getNome().split(' ')[0] || 'usuário'}! Bem-vindo a{' '}
+            Olá, {getNome().split(' ')[0]}! Bem-vindo a{' '}
             <Text className="font-bold">{empresaAtual.nome}</Text>
           </Text>
 
@@ -367,16 +379,23 @@ export default function HubScreen() {
                 <Text style={{ fontSize: 62, fontWeight: '700', color: '#1e2d6e', lineHeight: 56 }}>
                   210
                 </Text>
-                <Text style={{ fontSize: 18, color: '#6b7280', marginBottom: 8 }}>
+                <Text style={{ fontSize: 18
+                  , color: '#6b7280', marginBottom: 8 }}>
                   Funcionários
                 </Text>
               </View>
 
               {/* Botão */}
               <TouchableOpacity
-                style={{ backgroundColor: '#3b5fe0', borderRadius: 8, height: 44, alignItems: 'center', justifyContent: 'center' }}
+                style={{
+                  backgroundColor: '#3b5fe0',
+                  borderRadius: 8,
+                  height: 44,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
                 activeOpacity={0.85}
-                onPress={() => router.push({ pathname: '/funcionarios', params: { empresaId: empresaAtual.id, empresaName: empresaAtual.nome, grupoId: params.grupoId } } as any)}
+                onPress={() => router.push({ pathname: '/funcionarios' as any, params: { empresaId: empresaAtual.id, empresaName: empresaAtual.nome } })}
               >
                 <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Acessar</Text>
               </TouchableOpacity>

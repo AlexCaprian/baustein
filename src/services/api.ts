@@ -5,6 +5,7 @@ const BASE_URL = 'http://localhost:8080';
 const TOKEN_KEY = 'baustein_token';
 const PERFIL_KEY = 'baustein_perfil';
 const NOME_KEY = 'baustein_nome';
+const EMPRESA_ID_KEY = 'baustein_empresa_id';
 
 function readStorage(key: string): string {
   if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
@@ -23,12 +24,15 @@ function clearStorage() {
   if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(PERFIL_KEY);
+    localStorage.removeItem(NOME_KEY);
+    localStorage.removeItem(EMPRESA_ID_KEY);
   }
 }
 
 let authToken = readStorage(TOKEN_KEY);
 let authPerfil = readStorage(PERFIL_KEY);
 let authNome = readStorage(NOME_KEY);
+let authEmpresaId = readStorage(EMPRESA_ID_KEY);
 
 export function setToken(token: string) {
   authToken = token;
@@ -55,6 +59,16 @@ export function setNome(nome: string) {
 
 export function getNome() {
   return authNome;
+}
+
+export function setEmpresaId(id: number | null) {
+  authEmpresaId = id != null ? String(id) : '';
+  writeStorage(EMPRESA_ID_KEY, authEmpresaId);
+}
+
+export function getEmpresaId(): number | null {
+  const v = authEmpresaId || readStorage(EMPRESA_ID_KEY);
+  return v ? Number(v) : null;
 }
 
 function redirectToLogin() {
@@ -99,6 +113,7 @@ export interface LoginResponse {
   user_id: number;
   nome: string;
   perfil: string;
+  empresa_id: number | null;
   redirect: string;
 }
 
@@ -171,6 +186,7 @@ export const api = {
   },
 
   empresas: {
+    get: (id: number) => request<Empresa>(`/api/empresas/${id}`),
     list: (grupoId?: number) =>
       request<{ empresas: Empresa[] }>(
         `/api/empresas${grupoId != null ? `?grupo_id=${grupoId}` : ''}`

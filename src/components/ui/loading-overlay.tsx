@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { useEffect } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
   SharedValue,
@@ -11,9 +11,8 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
-
-import { useTheme } from '@/hooks/use-theme';
-import { ThemedText } from '@/components/themed-text';
+import { useColorScheme } from 'nativewind';
+import { Colors } from '@/constants/theme';
 
 const RING_SIZE = 92;
 const LOGO_SIZE = 54;
@@ -26,18 +25,17 @@ interface LoadingOverlayProps {
   message?: string;
 }
 
-function Dot({ shared }: { shared: SharedValue<number> }) {
+function Dot({ shared, color }: { shared: SharedValue<number>; color: string }) {
   const style = useAnimatedStyle(() => ({ opacity: shared.value }));
-  const theme = useTheme();
   return (
-    <Animated.Text style={[styles.dot, { color: theme.textSecondary }, style]}>
-      .
-    </Animated.Text>
+    <Animated.Text style={[styles.dot, { color }, style]}>.</Animated.Text>
   );
 }
 
 export function LoadingOverlay({ visible, message = 'Carregando' }: LoadingOverlayProps) {
-  const theme = useTheme();
+  const { colorScheme } = useColorScheme();
+  const theme = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
+
   const rotation = useSharedValue(0);
   const dot1 = useSharedValue(0.2);
   const dot2 = useSharedValue(0.2);
@@ -90,10 +88,7 @@ export function LoadingOverlay({ visible, message = 'Carregando' }: LoadingOverl
           <Animated.View
             style={[
               styles.ring,
-              {
-                borderTopColor: theme.primary,
-                borderRightColor: theme.primary,
-              },
+              { borderTopColor: theme.primary, borderRightColor: theme.primary },
               ringStyle,
             ]}
           />
@@ -105,12 +100,10 @@ export function LoadingOverlay({ visible, message = 'Carregando' }: LoadingOverl
         </View>
 
         <View style={styles.textRow}>
-          <ThemedText type="small" themeColor="textSecondary">
-            {message}
-          </ThemedText>
-          <Dot shared={dot1} />
-          <Dot shared={dot2} />
-          <Dot shared={dot3} />
+          <Text style={[styles.message, { color: theme.textSecondary }]}>{message}</Text>
+          <Dot shared={dot1} color={theme.textSecondary} />
+          <Dot shared={dot2} color={theme.textSecondary} />
+          <Dot shared={dot3} color={theme.textSecondary} />
         </View>
       </View>
     </View>
@@ -159,6 +152,11 @@ const styles = StyleSheet.create({
   textRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
+  },
+  message: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500',
   },
   dot: {
     fontSize: 18,
