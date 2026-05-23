@@ -149,6 +149,20 @@ export interface UsuarioInput {
   empresa_id?: number;
 }
 
+export interface PaginatedUsuarios {
+  usuarios: Usuario[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface UsuarioListParams {
+  empresaId?: number;
+  search?: string;
+  page?: number;
+  limit?: number;
+}
+
 export interface EmpresaInput {
   grupo_id: number;
   nome_fantasia: string;
@@ -176,7 +190,15 @@ export const api = {
   },
 
   usuarios: {
-    list: () => request<{ usuarios: Usuario[] }>('/api/usuarios'),
+    list: (params?: UsuarioListParams) => {
+      const qs = new URLSearchParams();
+      if (params?.empresaId != null) qs.set('empresa_id', String(params.empresaId));
+      if (params?.search) qs.set('search', params.search);
+      if (params?.page) qs.set('page', String(params.page));
+      if (params?.limit) qs.set('limit', String(params.limit));
+      const query = qs.toString() ? `?${qs}` : '';
+      return request<PaginatedUsuarios>(`/api/usuarios${query}`);
+    },
     create: (data: UsuarioInput) =>
       request<Usuario>('/api/usuarios', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: number, data: Partial<UsuarioInput>) =>

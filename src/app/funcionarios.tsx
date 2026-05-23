@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -16,6 +16,8 @@ import { useColorScheme } from 'nativewind';
 import { AppHeader } from '@/components/layout/app-header';
 import { LoadingOverlay } from '@/components/ui/loading-overlay';
 import { api, getPerfil, Usuario, UsuarioInput } from '../services/api';
+
+const PAGE_LIMIT = 20;
 
 const PERFIS = ['funcionario', 'admin'] as const;
 
@@ -61,36 +63,53 @@ export default function FuncionariosScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filterPerfil, setFilterPerfil] = useState('todos');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>(isMobile ? 'grid' : 'table');
   const [modalVisible, setModalVisible] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [showSenha, setShowSenha] = useState(false);
   const [erro, setErro] = useState('');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Debounce da busca: espera 400ms após o usuário parar de digitar
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 400);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [search]);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.usuarios.list();
-      setUsuarios((res.usuarios ?? []).filter(u => u.empresa_id === empresaId));
+      const res = await api.usuarios.list({
+        empresaId,
+        search: debouncedSearch || undefined,
+        page,
+        limit: PAGE_LIMIT,
+      });
+      setUsuarios(res.usuarios ?? []);
+      setTotal(res.total ?? 0);
     } catch (e: any) {
       Alert.alert('Erro', e.message);
     } finally {
       setLoading(false);
     }
-  }, [empresaId]);
+  }, [empresaId, debouncedSearch, page]);
 
   useEffect(() => { load(); }, [load]);
 
-  const filtered = useMemo(() => usuarios.filter(u => {
-    const q = search.toLowerCase();
-    const matchSearch = !q ||
-      u.nome.toLowerCase().includes(q) ||
-      u.username.toLowerCase().includes(q) ||
-      u.email.toLowerCase().includes(q);
-    const matchPerfil = filterPerfil === 'todos' || u.perfil === filterPerfil;
-    return matchSearch && matchPerfil;
-  }), [usuarios, search, filterPerfil]);
+  // Filtro de perfil aplicado client-side dentro da página atual
+  const filtered = useMemo(() => usuarios.filter(u =>
+    filterPerfil === 'todos' || u.perfil === filterPerfil
+  ), [usuarios, filterPerfil]);
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_LIMIT));
 
   const openModal = () => {
     setForm(EMPTY_FORM);
@@ -166,7 +185,7 @@ export default function FuncionariosScreen() {
           <View className="mb-5">
             <Text className="text-xl font-semibold text-[#2B3674] dark:text-white">Funcionários</Text>
             <Text className="text-sm text-gray-400 dark:text-gray-500 mt-0.5">
-              {empresaName} · {filtered.length} registro{filtered.length !== 1 ? 's' : ''}
+              {empresaName} · {total} registro{total !== 1 ? 's' : ''}
             </Text>
           </View>
 
@@ -311,6 +330,43 @@ export default function FuncionariosScreen() {
                   </View>
                 );
               })}
+            </View>
+          )}
+
+          {/* Paginação */}
+          {totalPages > 1 && (
+            <View className="flex-row items-center justify-center gap-4 mt-6">
+              <TouchableOpacity
+                onPress={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className={`flex-row items-center gap-1.5 px-4 py-2 rounded-lg border ${
+                  page === 1
+                    ? 'border-gray-200 dark:border-gray-700 opacity-40'
+                    : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900'
+                }`}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="chevron-back-outline" size={16} color={isDark ? '#9ca3af' : '#6b7280'} />
+                <Text className="text-sm font-medium text-gray-600 dark:text-gray-400">Anterior</Text>
+              </TouchableOpacity>
+
+              <Text className="text-sm text-gray-500 dark:text-gray-400">
+                {page} / {totalPages}
+              </Text>
+
+              <TouchableOpacity
+                onPress={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className={`flex-row items-center gap-1.5 px-4 py-2 rounded-lg border ${
+                  page === totalPages
+                    ? 'border-gray-200 dark:border-gray-700 opacity-40'
+                    : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900'
+                }`}
+                activeOpacity={0.8}
+              >
+                <Text className="text-sm font-medium text-gray-600 dark:text-gray-400">Próxima</Text>
+                <Ionicons name="chevron-forward-outline" size={16} color={isDark ? '#9ca3af' : '#6b7280'} />
+              </TouchableOpacity>
             </View>
           )}
 
