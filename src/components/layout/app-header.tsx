@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Image, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Modal, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Platform } from 'react-native';
 import { useColorScheme } from 'nativewind';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { logout } from '@/services/api';
 
 const THEME_KEY = 'baustein_theme';
@@ -32,12 +33,14 @@ export function AppHeader({ right, left, topBar }: AppHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [logoutModal, setLogoutModal] = useState(false);
   const isDark = colorScheme === 'dark';
+  const insets = useSafeAreaInsets();
+  const topPad = insets.top > 0 ? insets.top + 8 : (Platform.OS === 'web' ? 16 : 44);
 
   return (
     <>
       <View
         className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800"
-        style={{ paddingTop: 52, zIndex: 100, overflow: 'visible' }}
+        style={{ paddingTop: topPad, zIndex: 100, overflow: 'visible' }}
       >
         {topBar && (
           <View className="px-5 pb-1">
@@ -46,13 +49,13 @@ export function AppHeader({ right, left, topBar }: AppHeaderProps) {
         )}
         <View className="flex-row items-center justify-between px-5 pb-4">
         {/* Logo + Brand + left slot */}
-        <View className="flex-row items-center gap-3">
+        <View className="flex-row items-center gap-3" style={{ flex: 1, minWidth: 0, marginRight: 12 }}>
           <Image
             source={require('@/assets/images/icon_logo_borda.png')}
-            style={{ width: 28, height: 28, marginRight: 8 }}
+            style={{ width: 28, height: 28, marginRight: 8, flexShrink: 0 }}
             resizeMode="contain"
           />
-          <Text className="text-lg font-bold text-[#1e2d6e] dark:text-white">Baustein</Text>
+          <Text className="text-lg font-bold text-[#1e2d6e] dark:text-white" numberOfLines={1} style={{ flexShrink: 1 }}>Baustein</Text>
           {left}
         </View>
 

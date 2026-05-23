@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from 'nativewind';
@@ -27,6 +28,8 @@ function friendlyError(raw: string): string {
 export default function LoginScreen() {
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const { width } = useWindowDimensions();
+  const isMobile = width < 640;
 
   const [usuario, setUsuario] = useState('');
   const [password, setPassword] = useState('');
@@ -74,7 +77,7 @@ export default function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       className="flex-1 bg-slate-100 dark:bg-gray-950 justify-center items-center p-5"
     >
-      <View className="w-full bg-white dark:bg-gray-900 rounded-2xl p-8 border border-gray-200 dark:border-gray-800" style={{ maxWidth: 380 }}>
+      <View className="w-full bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800" style={{ maxWidth: 380, padding: isMobile ? 20 : 32 }}>
 
         {/* Logo */}
         <View className="flex-row items-center justify-center gap-2 mb-7">

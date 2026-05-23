@@ -6,6 +6,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from 'nativewind';
@@ -185,6 +186,8 @@ function HoursBarChart() {
 export default function HubScreen() {
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const { width } = useWindowDimensions();
+  const isMobile = width < 640;
 
   const params = useLocalSearchParams<{ empresaId: string; empresaName: string; grupoId: string }>();
 
@@ -320,7 +323,7 @@ export default function HubScreen() {
 
       <LoadingOverlay visible={loadingEmpresas} />
 
-      <ScrollView contentContainerStyle={{ padding: 24, paddingTop: 32, alignItems: 'center' }}>
+      <ScrollView contentContainerStyle={{ padding: isMobile ? 16 : 24, paddingTop: isMobile ? 20 : 32, alignItems: 'center' }}>
         <View style={{ width: '100%', maxWidth: 1200 }}>
 
           {/* Saudação */}
@@ -330,16 +333,17 @@ export default function HubScreen() {
           </Text>
 
           {/* Cards row */}
-          <View style={{ flexDirection: 'row', gap: 16, height: 300 }}>
+          <View style={{ flexDirection: isMobile ? 'column' : 'row', gap: 16 }}>
 
             {/* Gráfico de Funcionários */}
             <View style={{
-              flex: 1,
-              backgroundColor: '#fff',
+              flex: isMobile ? undefined : 1,
+              height: isMobile ? 260 : 300,
+              backgroundColor: isDark ? '#1C1F2E' : '#fff',
               borderRadius: 12,
               borderWidth: 1,
-              borderColor: '#e2e5ea',
-              padding: 24,
+              borderColor: isDark ? '#374151' : '#e2e5ea',
+              padding: isMobile ? 16 : 24,
             }}>
               <Text style={{ fontSize: 13, color: '#6b7280', marginBottom: 12 }}>
                 Horas dos Funcionários por Mês
@@ -351,12 +355,13 @@ export default function HubScreen() {
 
             {/* Card Funcionários */}
             <View style={{
-              width: 300,
-              backgroundColor: '#fff',
+              width: isMobile ? '100%' : 300,
+              height: isMobile ? undefined : 300,
+              backgroundColor: isDark ? '#1C1F2E' : '#fff',
               borderRadius: 12,
               borderWidth: 1,
-              borderColor: '#e2e5ea',
-              padding: 24,
+              borderColor: isDark ? '#374151' : '#e2e5ea',
+              padding: isMobile ? 16 : 24,
               gap: 16,
               justifyContent: 'space-between',
             }}>

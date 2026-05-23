@@ -9,6 +9,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from 'nativewind';
@@ -54,6 +55,8 @@ function validateCNPJ(cnpj: string): boolean {
 export default function SelectEmpresaScreen() {
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const { width } = useWindowDimensions();
+  const isMobile = width < 640;
 
   const [grupos, setGrupos] = useState<Grupo[]>([]);
   const [empresasByGrupo, setEmpresasByGrupo] = useState<Record<number, Empresa[]>>({});
@@ -176,12 +179,13 @@ export default function SelectEmpresaScreen() {
       <AppHeader
         right={
           <TouchableOpacity
-            className="flex-row items-center gap-1.5 bg-[#3b5fe0] px-3.5 py-2 rounded-lg"
+            className="flex-row items-center gap-1.5 bg-[#3b5fe0] rounded-lg"
+            style={{ paddingHorizontal: isMobile ? 10 : 14, paddingVertical: 8 }}
             onPress={() => setGrupoModal({ visible: true, editing: null, nome: '' })}
             activeOpacity={0.8}
           >
             <Ionicons name="add" size={18} color="#fff" />
-            <Text className="text-white text-sm font-semibold">Novo Grupo</Text>
+            {!isMobile && <Text className="text-white text-sm font-semibold">Novo Grupo</Text>}
           </TouchableOpacity>
         }
       />

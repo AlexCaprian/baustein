@@ -9,6 +9,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from 'nativewind';
@@ -47,6 +48,10 @@ function initials(nome: string) {
 export default function FuncionariosScreen() {
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const { width } = useWindowDimensions();
+  const isMobile = width < 640;
+  const contentWidth = width - (isMobile ? 32 : 48);
+  const cardW = isMobile ? Math.floor((contentWidth - 16) / 2) : 220;
   const params = useLocalSearchParams<{ empresaId: string; empresaName: string; grupoId: string }>();
   const empresaId = Number(params.empresaId);
   const empresaName = params.empresaName ?? 'Empresa';
@@ -57,7 +62,7 @@ export default function FuncionariosScreen() {
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
   const [filterPerfil, setFilterPerfil] = useState('todos');
-  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>(isMobile ? 'grid' : 'table');
   const [modalVisible, setModalVisible] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [showSenha, setShowSenha] = useState(false);
@@ -121,12 +126,13 @@ export default function FuncionariosScreen() {
       <AppHeader
         right={
           <TouchableOpacity
-            className="flex-row items-center gap-1.5 bg-[#3b5fe0] px-3.5 py-2 rounded-lg"
+            className="flex-row items-center gap-1.5 bg-[#3b5fe0] rounded-lg"
+            style={{ paddingHorizontal: isMobile ? 10 : 14, paddingVertical: 8 }}
             onPress={openModal}
             activeOpacity={0.8}
           >
             <Ionicons name="add" size={18} color="#fff" />
-            <Text className="text-white text-sm font-semibold">Novo Funcionário</Text>
+            {!isMobile && <Text className="text-white text-sm font-semibold">Novo Funcionário</Text>}
           </TouchableOpacity>
         }
       />
@@ -165,8 +171,9 @@ export default function FuncionariosScreen() {
           </View>
 
           {/* Busca + filtros */}
-          <View className="flex-row items-center gap-3 mb-4 flex-wrap">
-            <View className="flex-1 flex-row items-center gap-2 h-10 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3" style={{ minWidth: 200 }}>
+          <View className="mb-4" style={{ gap: 8 }}>
+            {/* Linha 1: busca */}
+            <View className="flex-row items-center gap-2 h-10 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3">
               <Ionicons name="search-outline" size={16} color={isDark ? '#4b5563' : '#9ca3af'} />
               <TextInput
                 className="flex-1 text-sm text-gray-800 dark:text-gray-100"
@@ -183,41 +190,44 @@ export default function FuncionariosScreen() {
               )}
             </View>
 
-            <View className="flex-row gap-2">
-              {filterOptions.map(opt => (
+            {/* Linha 2: filtros + toggle */}
+            <View className="flex-row items-center gap-2">
+              <View className="flex-row gap-2 flex-1 flex-wrap">
+                {filterOptions.map(opt => (
+                  <TouchableOpacity
+                    key={opt.key}
+                    onPress={() => setFilterPerfil(opt.key)}
+                    className={`h-9 px-3 rounded-lg border items-center justify-center ${
+                      filterPerfil === opt.key
+                        ? 'bg-[#3b5fe0] border-[#3b5fe0]'
+                        : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700'
+                    }`}
+                    activeOpacity={0.8}
+                  >
+                    <Text className={`text-sm font-medium ${filterPerfil === opt.key ? 'text-white' : 'text-gray-600 dark:text-gray-400'}`}>
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Toggle tabela / grid */}
+              <View className="flex-row border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-900">
                 <TouchableOpacity
-                  key={opt.key}
-                  onPress={() => setFilterPerfil(opt.key)}
-                  className={`h-10 px-4 rounded-lg border items-center justify-center ${
-                    filterPerfil === opt.key
-                      ? 'bg-[#3b5fe0] border-[#3b5fe0]'
-                      : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700'
-                  }`}
+                  className={`w-9 h-9 items-center justify-center ${viewMode === 'table' ? 'bg-[#3b5fe0]' : ''}`}
+                  onPress={() => setViewMode('table')}
                   activeOpacity={0.8}
                 >
-                  <Text className={`text-sm font-medium ${filterPerfil === opt.key ? 'text-white' : 'text-gray-600 dark:text-gray-400'}`}>
-                    {opt.label}
-                  </Text>
+                  <Ionicons name="list-outline" size={18} color={viewMode === 'table' ? '#fff' : isDark ? '#6b7280' : '#9ca3af'} />
                 </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* Toggle tabela / grid */}
-            <View className="flex-row border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-900">
-              <TouchableOpacity
-                className={`w-10 h-10 items-center justify-center ${viewMode === 'table' ? 'bg-[#3b5fe0]' : ''}`}
-                onPress={() => setViewMode('table')}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="list-outline" size={18} color={viewMode === 'table' ? '#fff' : isDark ? '#6b7280' : '#9ca3af'} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                className={`w-10 h-10 items-center justify-center ${viewMode === 'grid' ? 'bg-[#3b5fe0]' : ''}`}
-                onPress={() => setViewMode('grid')}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="grid-outline" size={18} color={viewMode === 'grid' ? '#fff' : isDark ? '#6b7280' : '#9ca3af'} />
-              </TouchableOpacity>
+                <TouchableOpacity
+                  className={`w-9 h-9 items-center justify-center ${viewMode === 'grid' ? 'bg-[#3b5fe0]' : ''}`}
+                  onPress={() => setViewMode('grid')}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="grid-outline" size={18} color={viewMode === 'grid' ? '#fff' : isDark ? '#6b7280' : '#9ca3af'} />
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
 
@@ -240,34 +250,36 @@ export default function FuncionariosScreen() {
 
           {/* Modo tabela */}
           {viewMode === 'table' && filtered.length > 0 && (
-            <View className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
-              <View className="flex-row items-center px-5 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-950">
-                <View style={{ width: 52 }} />
-                <Text className="flex-1 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Nome</Text>
-                <Text style={{ width: 150 }} className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Usuário</Text>
-                <Text style={{ width: 220 }} className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">E-mail</Text>
-                <Text style={{ width: 110 }} className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Perfil</Text>
-              </View>
-              {filtered.map((u, idx) => {
-                const color = avatarColor(u.nome);
-                const perf = PERFIL_COLORS[u.perfil] ?? { bg: '#f3f4f6', bgDark: '#1f2937', text: '#6b7280' };
-                return (
-                  <View key={u.id} className={`flex-row items-center px-5 py-3.5 ${idx < filtered.length - 1 ? 'border-b border-gray-50 dark:border-gray-800' : ''}`}>
-                    <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: color, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                      <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>{initials(u.nome)}</Text>
-                    </View>
-                    <Text className="flex-1 text-sm font-semibold text-gray-800 dark:text-gray-100" numberOfLines={1}>{u.nome}</Text>
-                    <Text style={{ width: 150 }} className="text-sm text-gray-400 dark:text-gray-500" numberOfLines={1}>@{u.username}</Text>
-                    <Text style={{ width: 220 }} className="text-sm text-gray-400 dark:text-gray-500" numberOfLines={1}>{u.email}</Text>
-                    <View style={{ width: 110 }}>
-                      <View style={{ backgroundColor: isDark ? perf.bgDark : perf.bg, paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20, alignSelf: 'flex-start' }}>
-                        <Text style={{ color: perf.text, fontSize: 12, fontWeight: '600' }}>{PERFIL_LABEL[u.perfil] ?? u.perfil}</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={isMobile} nestedScrollEnabled style={{ borderRadius: 12 }}>
+              <View className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden" style={{ minWidth: isMobile ? 580 : undefined }}>
+                <View className="flex-row items-center px-5 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-950">
+                  <View style={{ width: 52 }} />
+                  <Text className="flex-1 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Nome</Text>
+                  <Text style={{ width: 150 }} className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Usuário</Text>
+                  <Text style={{ width: 220 }} className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">E-mail</Text>
+                  <Text style={{ width: 110 }} className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Perfil</Text>
+                </View>
+                {filtered.map((u, idx) => {
+                  const color = avatarColor(u.nome);
+                  const perf = PERFIL_COLORS[u.perfil] ?? { bg: '#f3f4f6', bgDark: '#1f2937', text: '#6b7280' };
+                  return (
+                    <View key={u.id} className={`flex-row items-center px-5 py-3.5 ${idx < filtered.length - 1 ? 'border-b border-gray-50 dark:border-gray-800' : ''}`}>
+                      <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: color, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                        <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>{initials(u.nome)}</Text>
+                      </View>
+                      <Text className="flex-1 text-sm font-semibold text-gray-800 dark:text-gray-100" numberOfLines={1}>{u.nome}</Text>
+                      <Text style={{ width: 150 }} className="text-sm text-gray-400 dark:text-gray-500" numberOfLines={1}>@{u.username}</Text>
+                      <Text style={{ width: 220 }} className="text-sm text-gray-400 dark:text-gray-500" numberOfLines={1}>{u.email}</Text>
+                      <View style={{ width: 110 }}>
+                        <View style={{ backgroundColor: isDark ? perf.bgDark : perf.bg, paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20, alignSelf: 'flex-start' }}>
+                          <Text style={{ color: perf.text, fontSize: 12, fontWeight: '600' }}>{PERFIL_LABEL[u.perfil] ?? u.perfil}</Text>
+                        </View>
                       </View>
                     </View>
-                  </View>
-                );
-              })}
-            </View>
+                  );
+                })}
+              </View>
+            </ScrollView>
           )}
 
           {/* Modo grid */}
@@ -279,8 +291,8 @@ export default function FuncionariosScreen() {
                 return (
                   <View
                     key={u.id}
-                    className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-5"
-                    style={{ width: 220, gap: 12 }}
+                    className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4"
+                    style={{ width: cardW, gap: 12 }}
                   >
                     {/* Avatar grande */}
                     <View style={{ width: 56, height: 56, borderRadius: 16, backgroundColor: color, alignItems: 'center', justifyContent: 'center' }}>
