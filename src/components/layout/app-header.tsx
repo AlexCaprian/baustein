@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Image, Modal, useWindowDimensions } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Platform } from 'react-native';
 import { useColorScheme } from 'nativewind';
@@ -74,14 +74,14 @@ export function AppHeader({ right, left, topBar }: AppHeaderProps) {
         <View className="flex-row items-center gap-3" style={{ overflow: 'visible' }}>
           {right}
 
-          {/* Settings */}
+          {/* Avatar & Menu */}
           <View style={{ zIndex: 200, overflow: 'visible' }}>
             <TouchableOpacity
-              className="w-9 h-9 rounded-full bg-gray-100 dark:bg-gray-800 items-center justify-center"
               onPress={() => setMenuOpen(p => !p)}
               activeOpacity={0.7}
+              className="w-9 h-9 rounded-full bg-indigo-50 dark:bg-indigo-900 items-center justify-center"
             >
-              <Ionicons name="settings-outline" size={18} color={isDark ? '#9ca3af' : '#6b7280'} />
+              <Text className="text-xs font-bold text-[#3b5fe0] dark:text-indigo-300">{getInitials(getNome())}</Text>
             </TouchableOpacity>
 
             {menuOpen && (
@@ -112,11 +112,6 @@ export function AppHeader({ right, left, topBar }: AppHeaderProps) {
                 </TouchableOpacity>
               </View>
             )}
-          </View>
-
-          {/* Avatar */}
-          <View className="w-9 h-9 rounded-full bg-indigo-50 dark:bg-indigo-900 items-center justify-center">
-            <Text className="text-xs font-bold text-[#3b5fe0] dark:text-indigo-300">{getInitials(getNome())}</Text>
           </View>
         </View>
         </View>

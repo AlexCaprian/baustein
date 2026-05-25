@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from 'nativewind';
-import { api, Empresa, EmpresaInput, Grupo } from '../services/api';
+import { api, Empresa, EmpresaInput, Grupo, MODULOS, MODULOS_INFO, getPerfil } from '../services/api';
 import { AppHeader } from '@/components/layout/app-header';
 import { LoadingOverlay } from '@/components/ui/loading-overlay';
 
@@ -28,12 +28,19 @@ type EmpresaModal = {
   razao_social: string;
   cnpj: string;
 };
+type ModulosModal = {
+  visible: boolean;
+  empresa: Empresa | null;
+  modulos: string[];
+  isDefault: boolean;
+};
 
 const EMPTY_GRUPO: GrupoModal = { visible: false, editing: null, nome: '' };
 const EMPTY_EMPRESA: EmpresaModal = {
   visible: false, editing: null, grupoId: null,
   nome_fantasia: '', razao_social: '', cnpj: '',
 };
+const EMPTY_MODULOS: ModulosModal = { visible: false, empresa: null, modulos: [], isDefault: true };
 
 // ─── CNPJ helpers ────────────────────────────────────────────────────────────
 
@@ -65,7 +72,9 @@ export default function SelectEmpresaScreen() {
   const [erro, setErro] = useState('');
   const [grupoModal, setGrupoModal] = useState<GrupoModal>(EMPTY_GRUPO);
   const [empresaModal, setEmpresaModal] = useState<EmpresaModal>(EMPTY_EMPRESA);
+  const [modulosModal, setModulosModal] = useState<ModulosModal>(EMPTY_MODULOS);
   const [saving, setSaving] = useState(false);
+  const isDev = getPerfil() === 'dev';
 
   // ─── Load ──────────────────────────────────────────────────────────────────
 
@@ -170,6 +179,40 @@ export default function SelectEmpresaScreen() {
   const selectEmpresa = (e: Empresa) =>
     router.replace({ pathname: '/hub', params: { empresaId: e.id, empresaName: e.nome_fantasia, grupoId: e.grupo_id } } as any);
 
+  // ─── Módulos CRUD ──────────────────────────────────────────────────────────
+
+  const openModulosModal = async (emp: Empresa) => {
+    try {
+      const res = await api.modulos.get(emp.id);
+      setModulosModal({ visible: true, empresa: emp, modulos: res.modulos, isDefault: res.is_default });
+    } catch {
+      setModulosModal({ visible: true, empresa: emp, modulos: [...MODULOS], isDefault: true });
+    }
+  };
+
+  const toggleModulo = (modulo: string) => {
+    setModulosModal(p => ({
+      ...p,
+      isDefault: false,
+      modulos: p.modulos.includes(modulo)
+        ? p.modulos.filter(m => m !== modulo)
+        : [...p.modulos, modulo],
+    }));
+  };
+
+  const saveModulos = async () => {
+    if (!modulosModal.empresa) return;
+    setSaving(true);
+    try {
+      await api.modulos.set(modulosModal.empresa.id, modulosModal.modulos);
+      setModulosModal(EMPTY_MODULOS);
+    } catch (e: any) {
+      Alert.alert('Erro', e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // ─── Render ────────────────────────────────────────────────────────────────
 
   const ph = isDark ? '#4b5563' : '#bbb';
@@ -266,6 +309,11 @@ export default function SelectEmpresaScreen() {
                         >
                           <Text className="text-xs font-semibold text-[#3b5fe0] dark:text-indigo-400">Entrar</Text>
                         </TouchableOpacity>
+                        {isDev && (
+                          <TouchableOpacity className="p-1" onPress={() => openModulosModal(emp)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                            <Ionicons name="apps-outline" size={16} color={isDark ? '#6b7280' : '#6b7280'} />
+                          </TouchableOpacity>
+                        )}
                         <TouchableOpacity className="p-1" onPress={() => setEmpresaModal({ visible: true, editing: emp, grupoId: emp.grupo_id, nome_fantasia: emp.nome_fantasia, razao_social: emp.razao_social, cnpj: emp.cnpj })} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                           <Ionicons name="pencil-outline" size={16} color={isDark ? '#6b7280' : '#6b7280'} />
                         </TouchableOpacity>
@@ -400,6 +448,86 @@ export default function SelectEmpresaScreen() {
                 className={`flex-1 h-11 rounded-xl bg-[#3b5fe0] items-center justify-center ${(!empresaModal.nome_fantasia.trim() || !empresaModal.razao_social.trim() || !validateCNPJ(empresaModal.cnpj) || saving) ? 'opacity-40' : ''}`}
                 onPress={saveEmpresa}
                 disabled={!empresaModal.nome_fantasia.trim() || !empresaModal.razao_social.trim() || !validateCNPJ(empresaModal.cnpj) || saving}
+              >
+                <Text className="text-sm font-semibold text-white">Salvar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Modal Módulos ────────────────────────────────────────────────── */}
+      <Modal visible={modulosModal.visible} transparent animationType="fade" onRequestClose={() => setModulosModal(EMPTY_MODULOS)}>
+        <View className="flex-1 justify-center items-center p-6" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
+          <View className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full" style={{ maxWidth: 420 }}>
+
+            <Text className="text-lg font-bold text-[#1e2d6e] dark:text-white mb-0.5">Módulos</Text>
+            <Text className="text-xs text-gray-400 dark:text-gray-500 mb-4" numberOfLines={1}>
+              {modulosModal.empresa?.nome_fantasia}
+              {modulosModal.isDefault ? '  ·  padrão (todos habilitados)' : ''}
+            </Text>
+
+            <View style={{ gap: 8, marginBottom: 16 }}>
+              {MODULOS.map(modulo => {
+                const info = MODULOS_INFO[modulo];
+                const ativo = modulosModal.modulos.includes(modulo);
+                return (
+                  <TouchableOpacity
+                    key={modulo}
+                    onPress={() => toggleModulo(modulo)}
+                    style={{
+                      flexDirection: 'row', alignItems: 'center', gap: 12,
+                      padding: 14, borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: ativo ? '#3b5fe0' : (isDark ? '#374151' : '#e5e7eb'),
+                      backgroundColor: ativo ? (isDark ? '#1e3a5f' : '#eff6ff') : (isDark ? '#111827' : '#fff'),
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <View style={{
+                      width: 36, height: 36, borderRadius: 10,
+                      backgroundColor: ativo ? info.bgColor : (isDark ? '#374151' : '#f3f4f6'),
+                      alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <Ionicons name={info.icon as any} size={20} color={ativo ? info.color : (isDark ? '#6b7280' : '#9ca3af')} />
+                    </View>
+                    <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: ativo ? '#3b5fe0' : (isDark ? '#d1d5db' : '#374151') }}>
+                      {info.label}
+                    </Text>
+                    <View style={{
+                      width: 22, height: 22, borderRadius: 11, borderWidth: 2,
+                      borderColor: ativo ? '#3b5fe0' : (isDark ? '#4b5563' : '#d1d5db'),
+                      backgroundColor: ativo ? '#3b5fe0' : 'transparent',
+                      alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      {ativo && <Ionicons name="checkmark" size={13} color="#fff" />}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Restaurar padrão */}
+            <TouchableOpacity
+              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginBottom: 16 }}
+              onPress={() => setModulosModal(p => ({ ...p, modulos: [...MODULOS], isDefault: true }))}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="refresh-outline" size={13} color={isDark ? '#6b7280' : '#9ca3af'} />
+              <Text style={{ fontSize: 12, color: isDark ? '#6b7280' : '#9ca3af' }}>Restaurar padrão (todos)</Text>
+            </TouchableOpacity>
+
+            <View className="flex-row gap-2.5">
+              <TouchableOpacity
+                className="flex-1 h-11 rounded-xl border border-gray-200 dark:border-gray-600 items-center justify-center"
+                onPress={() => setModulosModal(EMPTY_MODULOS)}
+              >
+                <Text className="text-sm font-medium text-gray-500 dark:text-gray-400">Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                className={`flex-1 h-11 rounded-xl bg-[#3b5fe0] items-center justify-center ${saving ? 'opacity-50' : ''}`}
+                onPress={saveModulos}
+                disabled={saving}
               >
                 <Text className="text-sm font-semibold text-white">Salvar</Text>
               </TouchableOpacity>

@@ -11,7 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from 'nativewind';
 import { AppHeader } from '@/components/layout/app-header';
-import { api, Empresa, getNome, getPerfil, getEmpresaId } from '@/services/api';
+import { api, Empresa, getNome, getPerfil, getEmpresaId, MODULOS } from '@/services/api';
 
 export default function HubScreen() {
 
@@ -33,6 +33,7 @@ export default function HubScreen() {
   const [loadingEmpresas, setLoadingEmpresas] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [totalFuncionarios, setTotalFuncionarios] = useState<number | null>(null);
+  const [modulosHabilitados, setModulosHabilitados] = useState<string[]>([...MODULOS]);
 
   useEffect(() => {
     if (isDev) return;
@@ -64,6 +65,13 @@ export default function HubScreen() {
     api.usuarios.list({ empresaId: empresaAtual.id, limit: 1 })
       .then((res) => setTotalFuncionarios(res.total))
       .catch(() => {});
+  }, [empresaAtual.id]);
+
+  useEffect(() => {
+    if (!empresaAtual.id) return;
+    api.modulos.get(empresaAtual.id)
+      .then((res) => setModulosHabilitados(res.modulos))
+      .catch(() => setModulosHabilitados([...MODULOS]));
   }, [empresaAtual.id]);
 
   const trocarEmpresa = (e: Empresa) => {
@@ -175,7 +183,7 @@ export default function HubScreen() {
           <View style={{ flexDirection: isMobile ? 'column' : 'row', gap: 16, flexWrap: 'wrap' }}>
 
             {/* Card Funcionários */}
-            <View style={{
+            {modulosHabilitados.includes('funcionarios') && <View style={{
               width: isMobile ? '100%' : 300,
               height: isMobile ? undefined : 300,
               backgroundColor: isDark ? '#1C1F2E' : '#fff',
@@ -224,10 +232,10 @@ export default function HubScreen() {
               >
                 <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Acessar</Text>
               </TouchableOpacity>
-            </View>
+            </View>}
 
             {/* Card Controle de Ponto */}
-            <View style={{
+            {modulosHabilitados.includes('pontos') && <View style={{
               width: isMobile ? '100%' : 300,
               height: isMobile ? undefined : 300,
               backgroundColor: isDark ? '#1C1F2E' : '#fff',
@@ -276,7 +284,7 @@ export default function HubScreen() {
               >
                 <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Acessar</Text>
               </TouchableOpacity>
-            </View>
+            </View>}
 
           </View>
         </View>

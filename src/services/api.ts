@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { Platform } from 'react-native';
 
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8080';
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8080';
 const TOKEN_KEY = 'baustein_token';
 const PERFIL_KEY = 'baustein_perfil';
 const NOME_KEY = 'baustein_nome';
@@ -107,6 +107,16 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return data as T;
 }
 
+// ─── Módulos (enum) ──────────────────────────────────────────────────────────
+
+export const MODULOS = ['funcionarios', 'pontos'] as const;
+export type Modulo = typeof MODULOS[number];
+
+export const MODULOS_INFO: Record<Modulo, { label: string; icon: string; color: string; bgColor: string }> = {
+  funcionarios: { label: 'Funcionários',      icon: 'people-outline', color: '#3b5fe0', bgColor: '#eef1fd' },
+  pontos:       { label: 'Controle de Ponto', icon: 'time-outline',   color: '#d97706', bgColor: '#fef3c7' },
+};
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface LoginResponse {
@@ -139,6 +149,7 @@ export interface Usuario {
   username: string;
   email: string;
   perfil: string;
+  hora_trabalha?: number;
 }
 
 export interface UsuarioInput {
@@ -148,6 +159,7 @@ export interface UsuarioInput {
   senha: string;
   perfil: string;
   empresa_id?: number;
+  hora_trabalha?: number;
 }
 
 export interface PaginatedUsuarios {
@@ -177,15 +189,19 @@ export interface HRStat {
   demissoes: number;
 }
 
+export interface Batida {
+  entrada: string;
+  saida: string;
+}
+
 export interface RegistroPonto {
   id: number;
+  grupo_id: number;
+  empresa_id: number;
   usuario_id: number;
-  data: string;       // YYYY-MM-DD
+  data: string; // YYYY-MM-DD
   dia_semana: string;
-  entrada: string;
-  saida_almoco: string;
-  retorno_almoco: string;
-  saida: string;
+  batidas: Batida[];
   observacao: string;
 }
 
@@ -234,15 +250,25 @@ export const api = {
   ponto: {
     list: (usuarioId: number, from: string, to: string) =>
       request<{ registros: RegistroPonto[] }>(`/api/ponto?usuario_id=${usuarioId}&from=${from}&to=${to}`),
-    bulkUpsert: (usuarioId: number, registros: Omit<RegistroPonto, 'id' | 'usuario_id'>[]) =>
+    bulkUpsert: (usuarioId: number, registros: Omit<RegistroPonto, 'id' | 'usuario_id' | 'empresa_id' | 'grupo_id'>[]) =>
       request<{ message: string; count: number }>('/api/ponto/bulk', {
         method: 'POST',
         body: JSON.stringify({ usuario_id: usuarioId, registros }),
       }),
-    update: (id: number, data: Partial<Pick<RegistroPonto, 'entrada' | 'saida_almoco' | 'retorno_almoco' | 'saida' | 'observacao'>>) =>
+    update: (id: number, data: { batidas?: Batida[]; observacao?: string }) =>
       request<{ message: string }>(`/api/ponto/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id: number) =>
       request<{ message: string }>(`/api/ponto/${id}`, { method: 'DELETE' }),
+  },
+
+  modulos: {
+    get: (empresaId: number) =>
+      request<{ modulos: string[]; is_default: boolean }>(`/api/empresas/${empresaId}/modulos`),
+    set: (empresaId: number, modulos: string[]) =>
+      request<{ message: string; count: number }>(`/api/empresas/${empresaId}/modulos`, {
+        method: 'PUT',
+        body: JSON.stringify({ modulos }),
+      }),
   },
 
   empresas: {

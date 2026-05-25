@@ -35,7 +35,25 @@ const PERFIL_COLORS: Record<string, { bg: string; bgDark: string; text: string }
 
 const AVATAR_COLORS = ['#3b5fe0', '#7c3aed', '#0891b2', '#059669', '#d97706', '#dc2626'];
 
-const EMPTY_FORM = { nome: '', username: '', email: '', senha: '', perfil: 'funcionario' };
+const EMPTY_FORM = { nome: '', username: '', email: '', senha: '', perfil: 'funcionario', hora_trabalha: '08:00' };
+
+function parseHT(s: string): number {
+  const [h, m] = s.split(':').map(v => parseInt(v, 10) || 0);
+  const v = h + m / 60;
+  return v > 0 ? v : 8;
+}
+
+function fmtHT(h: number): string {
+  const hh = Math.floor(h);
+  const mm = Math.round((h - hh) * 60);
+  return `${hh}h${mm > 0 ? mm + 'm' : ''}`;
+}
+
+function htToInput(h: number): string {
+  const hh = Math.floor(h);
+  const mm = Math.round((h - hh) * 60);
+  return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+}
 
 function avatarColor(nome: string) {
   let h = 0;
@@ -134,7 +152,7 @@ export default function FuncionariosScreen() {
     setSaving(true);
     setErro('');
     try {
-      await api.usuarios.create({ ...form, empresa_id: empresaId });
+      await api.usuarios.create({ ...form, empresa_id: empresaId, hora_trabalha: parseHT(form.hora_trabalha) });
       setModalVisible(false);
       load();
     } catch (e: any) {
@@ -146,7 +164,7 @@ export default function FuncionariosScreen() {
 
   const openEditModal = (u: Usuario) => {
     setUserToEdit(u);
-    setEditForm({ nome: u.nome, username: u.username, email: u.email, senha: '', perfil: u.perfil });
+    setEditForm({ nome: u.nome, username: u.username, email: u.email, senha: '', perfil: u.perfil, hora_trabalha: htToInput(u.hora_trabalha ?? 8) });
     setEditErro('');
     setShowEditSenha(false);
     setEditModalVisible(true);
@@ -166,6 +184,7 @@ export default function FuncionariosScreen() {
         username: editForm.username,
         email: editForm.email,
         perfil: editForm.perfil,
+        hora_trabalha: parseHT(editForm.hora_trabalha),
       };
       if (editForm.senha.trim()) data.senha = editForm.senha;
       await api.usuarios.update(userToEdit.id, data);
@@ -338,6 +357,7 @@ export default function FuncionariosScreen() {
                   <Text style={{ width: 150 }} className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Usuário</Text>
                   <Text style={{ width: 220 }} className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">E-mail</Text>
                   <Text style={{ width: 110 }} className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Perfil</Text>
+                  <Text style={{ width: 72 }} className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">H. Dia</Text>
                   <View style={{ width: 80 }} />
                 </View>
                 {filtered.map((u, idx) => {
@@ -356,6 +376,7 @@ export default function FuncionariosScreen() {
                           <Text style={{ color: perf.text, fontSize: 12, fontWeight: '600' }}>{PERFIL_LABEL[u.perfil] ?? u.perfil}</Text>
                         </View>
                       </View>
+                      <Text style={{ width: 72, fontSize: 12, color: isDark ? '#9ca3af' : '#6b7280' }} numberOfLines={1}>{fmtHT(u.hora_trabalha ?? 8)}/dia</Text>
                       <View style={{ width: 80, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
                         <TouchableOpacity
                           style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: isDark ? '#1e3a5f' : '#eff6ff' }}
@@ -399,9 +420,12 @@ export default function FuncionariosScreen() {
                       <Text className="text-xs text-gray-400 dark:text-gray-500" numberOfLines={1}>@{u.username}</Text>
                       <Text className="text-xs text-gray-400 dark:text-gray-500" numberOfLines={1}>{u.email}</Text>
                     </View>
-                    {/* Badge perfil */}
-                    <View style={{ backgroundColor: isDark ? perf.bgDark : perf.bg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, alignSelf: 'flex-start' }}>
-                      <Text style={{ color: perf.text, fontSize: 12, fontWeight: '600' }}>{PERFIL_LABEL[u.perfil] ?? u.perfil}</Text>
+                    {/* Badge perfil + h/dia */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <View style={{ backgroundColor: isDark ? perf.bgDark : perf.bg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 }}>
+                        <Text style={{ color: perf.text, fontSize: 12, fontWeight: '600' }}>{PERFIL_LABEL[u.perfil] ?? u.perfil}</Text>
+                      </View>
+                      <Text style={{ fontSize: 11, color: isDark ? '#6b7280' : '#9ca3af' }}>{fmtHT(u.hora_trabalha ?? 8)}/dia</Text>
                     </View>
                     {/* Ações */}
                     <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -520,19 +544,38 @@ export default function FuncionariosScreen() {
               </View>
             </View>
 
-            {/* Email */}
-            <View className="mb-4">
-              <Text className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">E-mail *</Text>
-              <TextInput
-                className="h-11 border border-gray-300 dark:border-gray-600 rounded-lg px-3 text-sm text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-900"
-                style={{ outline: 'none' } as any}
-                value={form.email}
-                onChangeText={v => setForm(p => ({ ...p, email: v }))}
-                placeholder="joao@empresa.com"
-                placeholderTextColor={ph}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
+            {/* Email + Horas/dia */}
+            <View className="flex-row gap-3 mb-4">
+              <View className="flex-1">
+                <Text className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">E-mail *</Text>
+                <TextInput
+                  className="h-11 border border-gray-300 dark:border-gray-600 rounded-lg px-3 text-sm text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-900"
+                  style={{ outline: 'none' } as any}
+                  value={form.email}
+                  onChangeText={v => setForm(p => ({ ...p, email: v }))}
+                  placeholder="joao@empresa.com"
+                  placeholderTextColor={ph}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </View>
+              <View style={{ width: 100 }}>
+                <Text className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Horas / dia</Text>
+                <TextInput
+                  className="h-11 border border-gray-300 dark:border-gray-600 rounded-lg px-3 text-sm text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-900"
+                  style={{ outline: 'none', textAlign: 'center' } as any}
+                  value={form.hora_trabalha}
+                  onChangeText={v => {
+                    const digits = v.replace(/\D/g, '').slice(0, 4);
+                    const f = digits.length > 2 ? digits.slice(0, 2) + ':' + digits.slice(2) : digits;
+                    setForm(p => ({ ...p, hora_trabalha: f }));
+                  }}
+                  placeholder="08:00"
+                  placeholderTextColor={ph}
+                  maxLength={5}
+                  keyboardType="numeric"
+                />
+              </View>
             </View>
 
             {/* Perfil */}
@@ -638,19 +681,38 @@ export default function FuncionariosScreen() {
               </View>
             </View>
 
-            {/* Email */}
-            <View className="mb-4">
-              <Text className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">E-mail *</Text>
-              <TextInput
-                className="h-11 border border-gray-300 dark:border-gray-600 rounded-lg px-3 text-sm text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-900"
-                style={{ outline: 'none' } as any}
-                value={editForm.email}
-                onChangeText={v => setEditForm(p => ({ ...p, email: v }))}
-                placeholder="joao@empresa.com"
-                placeholderTextColor={ph}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
+            {/* Email + Horas/dia */}
+            <View className="flex-row gap-3 mb-4">
+              <View className="flex-1">
+                <Text className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">E-mail *</Text>
+                <TextInput
+                  className="h-11 border border-gray-300 dark:border-gray-600 rounded-lg px-3 text-sm text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-900"
+                  style={{ outline: 'none' } as any}
+                  value={editForm.email}
+                  onChangeText={v => setEditForm(p => ({ ...p, email: v }))}
+                  placeholder="joao@empresa.com"
+                  placeholderTextColor={ph}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </View>
+              <View style={{ width: 100 }}>
+                <Text className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Horas / dia</Text>
+                <TextInput
+                  className="h-11 border border-gray-300 dark:border-gray-600 rounded-lg px-3 text-sm text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-900"
+                  style={{ outline: 'none', textAlign: 'center' } as any}
+                  value={editForm.hora_trabalha}
+                  onChangeText={v => {
+                    const digits = v.replace(/\D/g, '').slice(0, 4);
+                    const f = digits.length > 2 ? digits.slice(0, 2) + ':' + digits.slice(2) : digits;
+                    setEditForm(p => ({ ...p, hora_trabalha: f }));
+                  }}
+                  placeholder="08:00"
+                  placeholderTextColor={ph}
+                  maxLength={5}
+                  keyboardType="numeric"
+                />
+              </View>
             </View>
 
             {/* Perfil */}
