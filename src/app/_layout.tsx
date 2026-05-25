@@ -60,6 +60,7 @@ export default function RootLayout() {
           <Stack.Screen name="select-empresa" />
           <Stack.Screen name="hub" />
           <Stack.Screen name="funcionarios" />
+          <Stack.Screen name="ponto" />
         </Stack>
         <AuthGuard />
       </ThemeProvider>

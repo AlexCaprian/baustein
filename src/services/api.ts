@@ -91,7 +91,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
       headers: {
         'Content-Type': 'application/json',
         ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-        ...(options?.headers ?? {}),
+...(options?.headers ?? {}),
       },
     });
   } catch {
@@ -170,6 +170,24 @@ export interface EmpresaInput {
   cnpj: string;
 }
 
+export interface HRStat {
+  label: string;
+  contratacoes: number;
+  demissoes: number;
+}
+
+export interface RegistroPonto {
+  id: number;
+  usuario_id: number;
+  data: string;       // YYYY-MM-DD
+  dia_semana: string;
+  entrada: string;
+  saida_almoco: string;
+  retorno_almoco: string;
+  saida: string;
+  observacao: string;
+}
+
 // ─── API ─────────────────────────────────────────────────────────────────────
 
 export const api = {
@@ -203,8 +221,27 @@ export const api = {
       request<Usuario>('/api/usuarios', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: number, data: Partial<UsuarioInput>) =>
       request<Usuario>(`/api/usuarios/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (id: number, motivo: 'delecao' | 'demissao') =>
+      request<{ message: string }>(`/api/usuarios/${id}`, { 
+        method: 'DELETE',
+        body: JSON.stringify({ motivo })
+      }),
+    getStats: (empresaId: number) =>
+      request<HRStat[]>(`/api/usuarios/stats?empresa_id=${empresaId}`),
+  },
+
+  ponto: {
+    list: (usuarioId: number, from: string, to: string) =>
+      request<{ registros: RegistroPonto[] }>(`/api/ponto?usuario_id=${usuarioId}&from=${from}&to=${to}`),
+    bulkUpsert: (usuarioId: number, registros: Omit<RegistroPonto, 'id' | 'usuario_id'>[]) =>
+      request<{ message: string; count: number }>('/api/ponto/bulk', {
+        method: 'POST',
+        body: JSON.stringify({ usuario_id: usuarioId, registros }),
+      }),
+    update: (id: number, data: Partial<Pick<RegistroPonto, 'entrada' | 'saida_almoco' | 'retorno_almoco' | 'saida' | 'observacao'>>) =>
+      request<{ message: string }>(`/api/ponto/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id: number) =>
-      request<{ message: string }>(`/api/usuarios/${id}`, { method: 'DELETE' }),
+      request<{ message: string }>(`/api/ponto/${id}`, { method: 'DELETE' }),
   },
 
   empresas: {

@@ -42,7 +42,7 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     if (!usuario.trim()) {
       setCampoErro('usuario');
-      setErro('Informe seu usuário ou e-mail.');
+      setErro('Informe seu usuário.');
       return;
     }
     if (!password.trim()) {

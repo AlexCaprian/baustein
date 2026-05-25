@@ -12,178 +12,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from 'nativewind';
 import { AppHeader } from '@/components/layout/app-header';
 import { api, Empresa, getNome, getPerfil, getEmpresaId } from '@/services/api';
-import { LoadingOverlay } from '@/components/ui/loading-overlay';
 
-const Y_AXIS_W = 36;
-const X_AXIS_H = 18;
-const LEGEND_H = 24;
-
-const HOURS_DATA = [
-  { label: 'Jan', certas: 138, extras: 42, menos: 30 },
-  { label: 'Fev', certas: 150, extras: 35, menos: 25 },
-  { label: 'Mar', certas: 125, extras: 55, menos: 30 },
-  { label: 'Abr', certas: 160, extras: 30, menos: 20 },
-  { label: 'Mai', certas: 143, extras: 44, menos: 23 },
-  { label: 'Jun', certas: 148, extras: 38, menos: 24 },
-  { label: 'Jul', certas: 152, extras: 36, menos: 22 },
-  { label: 'Ago', certas: 145, extras: 40, menos: 25 },
-  { label: 'Set', certas: 158, extras: 32, menos: 20 },
-  { label: 'Out', certas: 140, extras: 48, menos: 22 },
-  { label: 'Nov', certas: 155, extras: 33, menos: 22 },
-  { label: 'Dez', certas: 162, extras: 28, menos: 20 },
-];
-
-const SERIES = [
-  { key: 'certas' as const, label: 'Horas certas', color: '#3b5fe0' },
-  { key: 'extras' as const, label: 'Horas extras', color: '#f59e0b' },
-  { key: 'menos'  as const, label: 'Horas a menos', color: '#ef4444' },
-];
-
-const TOOLTIP_W = 148;
-const TOOLTIP_H = 58;
-
-type TooltipState = {
-  x: number; y: number;
-  value: number; series: string; month: string; color: string;
-} | null;
-
-function HoursBarChart() {
-  const [dims, setDims] = useState({ w: 0, h: 0 });
-  const [tooltip, setTooltip] = useState<TooltipState>(null);
-
-  const maxVal = 210;
-  const yLabels = [0, 70, 140, 210];
-
-  const svgW = Math.max(0, dims.w - Y_AXIS_W);
-  const svgH = Math.max(0, dims.h - X_AXIS_H - LEGEND_H);
-
-  const n = HOURS_DATA.length;
-  const groupW = svgW / n;
-  const pad = groupW * 0.1;
-  const barW = (groupW - pad * 4) / 3;
-
-  const toH = (v: number) => (v / maxVal) * svgH;
-  const toY = (v: number) => svgH - toH(v);
-  const xBar = (i: number, s: number) => i * groupW + pad + s * (barW + pad);
-
-  const handleBarClick = (e: any, d: typeof HOURS_DATA[0], s: typeof SERIES[0], i: number, si: number) => {
-    e.stopPropagation();
-    const barCenterX = xBar(i, si) + barW / 2;
-    const barTopY = toY(d[s.key]);
-    const tx = Math.min(Math.max(barCenterX - TOOLTIP_W / 2, 0), svgW - TOOLTIP_W);
-    const ty = Math.max(barTopY - TOOLTIP_H - 10, 0);
-    const isSame = tooltip?.series === s.label && tooltip?.month === d.label;
-    setTooltip(isSame ? null : { x: tx, y: ty, value: d[s.key], series: s.label, month: d.label, color: s.color });
-  };
-
-  return (
-    <View
-      style={{ flex: 1 }}
-      onLayout={(e) => {
-        const { width, height } = e.nativeEvent.layout;
-        setDims({ w: width, h: height });
-      }}
-    >
-      {/* Legenda */}
-      <View style={{ flexDirection: 'row', gap: 16, marginBottom: 8, marginLeft: Y_AXIS_W, height: LEGEND_H, alignItems: 'center' }}>
-        {SERIES.map(s => (
-          <View key={s.key} style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-            <View style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: s.color }} />
-            <Text style={{ fontSize: 11, color: '#6b7280' }}>{s.label}</Text>
-          </View>
-        ))}
-      </View>
-
-      <View style={{ flexDirection: 'row', height: svgH }}>
-        {/* Y axis */}
-        <View style={{ width: Y_AXIS_W, height: svgH, justifyContent: 'space-between', alignItems: 'flex-end', paddingRight: 4 }}>
-          {[...yLabels].reverse().map(l => (
-            <Text key={l} style={{ fontSize: 10, color: '#9ca3af' }}>{l}</Text>
-          ))}
-        </View>
-
-        {/* SVG + tooltip container */}
-        <View style={{ flex: 1, position: 'relative' }}>
-          {svgW > 0 && svgH > 0 && (
-            <svg width={svgW} height={svgH} onClick={() => setTooltip(null)} style={{ display: 'block' }}>
-              {yLabels.map(l => (
-                <line key={l} x1={0} y1={toY(l)} x2={svgW} y2={toY(l)} stroke="#f3f4f6" strokeWidth={1} />
-              ))}
-              {HOURS_DATA.map((d, i) =>
-                SERIES.map((s, si) => (
-                  <rect
-                    key={`${i}-${si}`}
-                    x={xBar(i, si)}
-                    y={toY(d[s.key])}
-                    width={barW}
-                    height={toH(d[s.key])}
-                    fill={s.color}
-                    rx={3}
-                    opacity={tooltip?.series === s.label && tooltip?.month === d.label ? 1 : 0.88}
-                    style={{ cursor: 'pointer' }}
-                    onClick={(e) => handleBarClick(e, d, s, i, si)}
-                  />
-                ))
-              )}
-            </svg>
-          )}
-
-          {/* Tooltip */}
-          {tooltip && (
-            <View
-              style={{
-                position: 'absolute',
-                left: tooltip.x,
-                top: tooltip.y,
-                width: TOOLTIP_W,
-                backgroundColor: '#1e293b',
-                borderRadius: 10,
-                paddingHorizontal: 12,
-                paddingVertical: 10,
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.22,
-                shadowRadius: 8,
-                gap: 4,
-              }}
-              pointerEvents="none"
-            >
-              <Text style={{ fontSize: 10, color: '#94a3b8', fontWeight: '500' }}>
-                {tooltip.month} · {tooltip.series}
-              </Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <View style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: tooltip.color }} />
-                <Text style={{ fontSize: 16, fontWeight: '700', color: '#f1f5f9' }}>
-                  {tooltip.value}
-                  <Text style={{ fontSize: 11, fontWeight: '400', color: '#94a3b8' }}> funcionários</Text>
-                </Text>
-              </View>
-              {/* Seta */}
-              <View style={{
-                position: 'absolute',
-                bottom: -6, left: TOOLTIP_W / 2 - 6,
-                width: 0, height: 0,
-                borderLeftWidth: 6, borderRightWidth: 6, borderTopWidth: 6,
-                borderLeftColor: 'transparent', borderRightColor: 'transparent',
-                borderTopColor: '#1e293b',
-              }} />
-            </View>
-          )}
-        </View>
-      </View>
-
-      {/* X axis */}
-      <View style={{ flexDirection: 'row', marginLeft: Y_AXIS_W, marginTop: 4, height: X_AXIS_H - 4 }}>
-        {HOURS_DATA.map(d => (
-          <View key={d.label} style={{ flex: 1, alignItems: 'center' }}>
-            <Text style={{ fontSize: 10, color: '#9ca3af' }}>{d.label}</Text>
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-}
 export default function HubScreen() {
+
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === 'dark';
   const { width } = useWindowDimensions();
@@ -197,9 +28,11 @@ export default function HubScreen() {
     id: Number(params.empresaId) || 0,
     nome: params.empresaName ?? 'Carregando...',
   });
+  const [grupoId, setGrupoId] = useState<number>(Number(params.grupoId) || 0);
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [loadingEmpresas, setLoadingEmpresas] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [totalFuncionarios, setTotalFuncionarios] = useState<number | null>(null);
 
   useEffect(() => {
     if (isDev) return;
@@ -207,27 +40,35 @@ export default function HubScreen() {
     if (!id) return;
     api.empresas.get(id).then((e) => {
       setEmpresaAtual({ id: e.id, nome: e.nome_fantasia });
+      if (e.grupo_id) setGrupoId(e.grupo_id);
     }).catch(() => {});
   }, [isDev]);
 
-  const loadEmpresas = useCallback(async () => {
-    const grupoId = Number(params.grupoId);
-    if (!grupoId) return;
+  const loadEmpresas = useCallback(async (gId: number) => {
+    if (!gId) return;
     setLoadingEmpresas(true);
     try {
-      const res = await api.empresas.list(grupoId);
+      const res = await api.empresas.list(gId);
       setEmpresas(res.empresas ?? []);
     } catch {
       // silencioso — dropdown só não mostra outras empresas
     } finally {
       setLoadingEmpresas(false);
     }
-  }, [params.grupoId]);
+  }, []);
 
-  useEffect(() => { loadEmpresas(); }, [loadEmpresas]);
+  useEffect(() => { if (grupoId) loadEmpresas(grupoId); }, [grupoId, loadEmpresas]);
+
+  useEffect(() => {
+    if (!empresaAtual.id) return;
+    api.usuarios.list({ empresaId: empresaAtual.id, limit: 1 })
+      .then((res) => setTotalFuncionarios(res.total))
+      .catch(() => {});
+  }, [empresaAtual.id]);
 
   const trocarEmpresa = (e: Empresa) => {
     setEmpresaAtual({ id: e.id, nome: e.nome_fantasia });
+    setTotalFuncionarios(null);
     setDropdownOpen(false);
   };
 
@@ -321,8 +162,6 @@ export default function HubScreen() {
         }
       />
 
-      <LoadingOverlay visible={loadingEmpresas} />
-
       <ScrollView contentContainerStyle={{ padding: isMobile ? 16 : 24, paddingTop: isMobile ? 20 : 32, alignItems: 'center' }}>
         <View style={{ width: '100%', maxWidth: 1200 }}>
 
@@ -333,25 +172,7 @@ export default function HubScreen() {
           </Text>
 
           {/* Cards row */}
-          <View style={{ flexDirection: isMobile ? 'column' : 'row', gap: 16 }}>
-
-            {/* Gráfico de Funcionários */}
-            <View style={{
-              flex: isMobile ? undefined : 1,
-              height: isMobile ? 260 : 300,
-              backgroundColor: isDark ? '#1C1F2E' : '#fff',
-              borderRadius: 12,
-              borderWidth: 1,
-              borderColor: isDark ? '#374151' : '#e2e5ea',
-              padding: isMobile ? 16 : 24,
-            }}>
-              <Text style={{ fontSize: 13, color: '#6b7280', marginBottom: 12 }}>
-                Horas dos Funcionários por Mês
-              </Text>
-              <View style={{ flex: 1 }}>
-                <HoursBarChart />
-              </View>
-            </View>
+          <View style={{ flexDirection: isMobile ? 'column' : 'row', gap: 16, flexWrap: 'wrap' }}>
 
             {/* Card Funcionários */}
             <View style={{
@@ -381,11 +202,10 @@ export default function HubScreen() {
 
               {/* Número */}
               <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 6 }}>
-                <Text style={{ fontSize: 62, fontWeight: '700', color: '#1e2d6e', lineHeight: 56 }}>
-                  210
+                <Text style={{ fontSize: 62, fontWeight: '700', color: isDark ? '#fff' : '#1e2d6e', lineHeight: 56 }}>
+                  {totalFuncionarios ?? '—'}
                 </Text>
-                <Text style={{ fontSize: 18
-                  , color: '#6b7280', marginBottom: 8 }}>
+                <Text style={{ fontSize: 18, color: '#6b7280', marginBottom: 8 }}>
                   Funcionários
                 </Text>
               </View>
@@ -401,6 +221,58 @@ export default function HubScreen() {
                 }}
                 activeOpacity={0.85}
                 onPress={() => router.push({ pathname: '/funcionarios' as any, params: { empresaId: empresaAtual.id, empresaName: empresaAtual.nome } })}
+              >
+                <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Acessar</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Card Controle de Ponto */}
+            <View style={{
+              width: isMobile ? '100%' : 300,
+              height: isMobile ? undefined : 300,
+              backgroundColor: isDark ? '#1C1F2E' : '#fff',
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: isDark ? '#374151' : '#e2e5ea',
+              padding: isMobile ? 16 : 24,
+              gap: 16,
+              justifyContent: 'space-between',
+            }}>
+              {/* Ícone + Data */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <View style={{
+                  width: 44, height: 44, borderRadius: 12,
+                  backgroundColor: '#fef3c7',
+                  alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Ionicons name="time-outline" size={24} color="#d97706" />
+                </View>
+                <Text style={{ fontSize: 13, color: '#6b7280', flex: 1 }}>
+                  {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                </Text>
+              </View>
+
+              {/* Título */}
+              <View style={{ gap: 4 }}>
+                <Text style={{ fontSize: 28, fontWeight: '700', color: isDark ? '#fff' : '#1e2d6e' }}>
+                  Ponto
+                </Text>
+                <Text style={{ fontSize: 14, color: '#6b7280' }}>
+                  Controle de jornada e horas
+                </Text>
+              </View>
+
+              {/* Botão */}
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#d97706',
+                  borderRadius: 8,
+                  height: 44,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                activeOpacity={0.85}
+                onPress={() => router.push({ pathname: '/ponto' as any, params: { empresaId: empresaAtual.id, empresaName: empresaAtual.nome } })}
               >
                 <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Acessar</Text>
               </TouchableOpacity>

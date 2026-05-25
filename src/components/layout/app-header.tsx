@@ -4,9 +4,20 @@ import { Ionicons } from '@expo/vector-icons';
 import { Platform } from 'react-native';
 import { useColorScheme } from 'nativewind';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { logout } from '@/services/api';
+import { logout, getNome } from '@/services/api';
 
 const THEME_KEY = 'baustein_theme';
+
+function getInitials(nome: string): string {
+  const words = nome.trim().split(/\s+/);
+  const initials: string[] = [];
+  for (const word of words) {
+    if (initials.length >= 2) break;
+    const letter = word.match(/[a-zA-ZÀ-ÿ]/);
+    if (letter) initials.push(letter[0].toUpperCase());
+  }
+  return initials.join('') || '?';
+}
 
 function saveTheme(scheme: 'light' | 'dark') {
   if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
@@ -105,7 +116,7 @@ export function AppHeader({ right, left, topBar }: AppHeaderProps) {
 
           {/* Avatar */}
           <View className="w-9 h-9 rounded-full bg-indigo-50 dark:bg-indigo-900 items-center justify-center">
-            <Text className="text-xs font-bold text-[#3b5fe0] dark:text-indigo-300">AB</Text>
+            <Text className="text-xs font-bold text-[#3b5fe0] dark:text-indigo-300">{getInitials(getNome())}</Text>
           </View>
         </View>
         </View>

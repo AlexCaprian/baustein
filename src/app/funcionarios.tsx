@@ -67,6 +67,14 @@ export default function FuncionariosScreen() {
   const [filterPerfil, setFilterPerfil] = useState('todos');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>(isMobile ? 'grid' : 'table');
   const [modalVisible, setModalVisible] = useState(false);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<Usuario | null>(null);
+  const [deleteReason, setDeleteReason] = useState<'delecao' | 'demissao'>('delecao');
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [userToEdit, setUserToEdit] = useState<Usuario | null>(null);
+  const [editForm, setEditForm] = useState(EMPTY_FORM);
+  const [showEditSenha, setShowEditSenha] = useState(false);
+  const [editErro, setEditErro] = useState('');
   const [form, setForm] = useState(EMPTY_FORM);
   const [showSenha, setShowSenha] = useState(false);
   const [erro, setErro] = useState('');
@@ -136,6 +144,57 @@ export default function FuncionariosScreen() {
     }
   };
 
+  const openEditModal = (u: Usuario) => {
+    setUserToEdit(u);
+    setEditForm({ nome: u.nome, username: u.username, email: u.email, senha: '', perfil: u.perfil });
+    setEditErro('');
+    setShowEditSenha(false);
+    setEditModalVisible(true);
+  };
+
+  const handleUpdate = async () => {
+    if (!userToEdit) return;
+    if (!editForm.nome.trim() || !editForm.username.trim() || !editForm.email.trim()) {
+      setEditErro('Preencha todos os campos obrigatórios.');
+      return;
+    }
+    setSaving(true);
+    setEditErro('');
+    try {
+      const data: Partial<UsuarioInput> = {
+        nome: editForm.nome,
+        username: editForm.username,
+        email: editForm.email,
+        perfil: editForm.perfil,
+      };
+      if (editForm.senha.trim()) data.senha = editForm.senha;
+      await api.usuarios.update(userToEdit.id, data);
+      setEditModalVisible(false);
+      setUserToEdit(null);
+      load();
+    } catch (e: any) {
+      setEditErro(e.message ?? 'Erro ao atualizar funcionário.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!userToDelete) return;
+    setSaving(true);
+    try {
+      await api.usuarios.delete(userToDelete.id, deleteReason);
+      setDeleteModalVisible(false);
+      setUserToDelete(null);
+      load();
+    } catch (e: any) {
+      Alert.alert('Erro', e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+
   const ph = isDark ? '#4b5563' : '#bbb';
 
   const filterOptions = [{ key: 'todos', label: 'Todos' }, ...PERFIS.map(p => ({ key: p, label: PERFIL_LABEL[p] }))];
@@ -156,37 +215,30 @@ export default function FuncionariosScreen() {
         }
       />
 
-      <ScrollView contentContainerStyle={{ padding: 24, alignItems: 'center' }}>
-        <View style={{ width: '100%', maxWidth: 1200 }}>
+      <ScrollView contentContainerStyle={{ padding: 24 }}>
+        <View style={{ width: '100%', maxWidth: 1200, alignSelf: 'center' }}>
 
-          {/* Navegação */}
-          <View className="flex-row items-center gap-2 mb-5">
+          {/* Título + back */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 20 }}>
             <TouchableOpacity
-              className="flex-row items-center gap-1.5 border border-gray-200 dark:border-gray-700 px-3 py-1.5 rounded-lg bg-white dark:bg-gray-900"
               onPress={() => router.push({ pathname: '/hub', params: { empresaId: params.empresaId, empresaName: params.empresaName, grupoId: params.grupoId } } as any)}
-              activeOpacity={0.8}
+              style={{ padding: 6, borderRadius: 8, backgroundColor: isDark ? '#1f2937' : '#f1f5f9' }}
+              activeOpacity={0.7}
             >
-              <Ionicons name="arrow-back-outline" size={15} color={isDark ? '#9ca3af' : '#6b7280'} />
-              <Text className="text-sm font-medium text-gray-600 dark:text-gray-400">Voltar ao Hub</Text>
+              <Ionicons name="chevron-back" size={18} color={isDark ? '#9ca3af' : '#6b7280'} />
             </TouchableOpacity>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: isDark ? '#fff' : '#1e2d6e' }}>
+              Funcionários
+            </Text>
             {isDev && (
               <TouchableOpacity
-                className="flex-row items-center gap-1.5 border border-gray-200 dark:border-gray-700 px-3 py-1.5 rounded-lg bg-white dark:bg-gray-900"
                 onPress={() => router.replace('/select-empresa' as any)}
-                activeOpacity={0.8}
+                style={{ marginLeft: 'auto', padding: 6, borderRadius: 8, backgroundColor: isDark ? '#1f2937' : '#f1f5f9' }}
+                activeOpacity={0.7}
               >
-                <Ionicons name="business-outline" size={15} color={isDark ? '#9ca3af' : '#6b7280'} />
-                <Text className="text-sm font-medium text-gray-600 dark:text-gray-400">Selecionar Empresa</Text>
+                <Ionicons name="business-outline" size={16} color={isDark ? '#9ca3af' : '#6b7280'} />
               </TouchableOpacity>
             )}
-          </View>
-
-          {/* Título */}
-          <View className="mb-5">
-            <Text className="text-xl font-semibold text-[#2B3674] dark:text-white">Funcionários</Text>
-            <Text className="text-sm text-gray-400 dark:text-gray-500 mt-0.5">
-              {empresaName} · {total} registro{total !== 1 ? 's' : ''}
-            </Text>
           </View>
 
           {/* Busca + filtros */}
@@ -269,14 +321,24 @@ export default function FuncionariosScreen() {
 
           {/* Modo tabela */}
           {viewMode === 'table' && filtered.length > 0 && (
-            <ScrollView horizontal showsHorizontalScrollIndicator={isMobile} nestedScrollEnabled style={{ borderRadius: 12 }}>
-              <View className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden" style={{ minWidth: isMobile ? 580 : undefined }}>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={isMobile} 
+              nestedScrollEnabled 
+              style={{ borderRadius: 12 }}
+              contentContainerStyle={!isMobile ? { flex: 1 } : undefined}
+            >
+              <View 
+                className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden" 
+                style={{ width: '100%', minWidth: isMobile ? 580 : undefined }}
+              >
                 <View className="flex-row items-center px-5 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-950">
                   <View style={{ width: 52 }} />
                   <Text className="flex-1 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Nome</Text>
                   <Text style={{ width: 150 }} className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Usuário</Text>
                   <Text style={{ width: 220 }} className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">E-mail</Text>
                   <Text style={{ width: 110 }} className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Perfil</Text>
+                  <View style={{ width: 80 }} />
                 </View>
                 {filtered.map((u, idx) => {
                   const color = avatarColor(u.nome);
@@ -293,6 +355,20 @@ export default function FuncionariosScreen() {
                         <View style={{ backgroundColor: isDark ? perf.bgDark : perf.bg, paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20, alignSelf: 'flex-start' }}>
                           <Text style={{ color: perf.text, fontSize: 12, fontWeight: '600' }}>{PERFIL_LABEL[u.perfil] ?? u.perfil}</Text>
                         </View>
+                      </View>
+                      <View style={{ width: 80, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
+                        <TouchableOpacity
+                          style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: isDark ? '#1e3a5f' : '#eff6ff' }}
+                          onPress={() => openEditModal(u)}
+                        >
+                          <Ionicons name="create-outline" size={16} color="#3b5fe0" />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: isDark ? '#3b0f0f' : '#fff1f2' }}
+                          onPress={() => { setUserToDelete(u); setDeleteReason('delecao'); setDeleteModalVisible(true); }}
+                        >
+                          <Ionicons name="trash-outline" size={16} color="#ef4444" />
+                        </TouchableOpacity>
                       </View>
                     </View>
                   );
@@ -326,6 +402,24 @@ export default function FuncionariosScreen() {
                     {/* Badge perfil */}
                     <View style={{ backgroundColor: isDark ? perf.bgDark : perf.bg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, alignSelf: 'flex-start' }}>
                       <Text style={{ color: perf.text, fontSize: 12, fontWeight: '600' }}>{PERFIL_LABEL[u.perfil] ?? u.perfil}</Text>
+                    </View>
+                    {/* Ações */}
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <TouchableOpacity
+                        style={{ flex: 1, height: 34, borderRadius: 8, backgroundColor: isDark ? '#1e3a5f' : '#eff6ff', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 4 }}
+                        onPress={() => openEditModal(u)}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons name="create-outline" size={14} color="#3b5fe0" />
+                        <Text style={{ fontSize: 12, fontWeight: '600', color: '#3b5fe0' }}>Editar</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={{ width: 34, height: 34, borderRadius: 8, backgroundColor: isDark ? '#3b0f0f' : '#fff1f2', alignItems: 'center', justifyContent: 'center' }}
+                        onPress={() => { setUserToDelete(u); setDeleteReason('delecao'); setDeleteModalVisible(true); }}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons name="trash-outline" size={14} color="#ef4444" />
+                      </TouchableOpacity>
                     </View>
                   </View>
                 );
@@ -485,6 +579,201 @@ export default function FuncionariosScreen() {
                 disabled={saving}
               >
                 <Text className="text-sm font-semibold text-white">Cadastrar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Editar Funcionário */}
+      <Modal visible={editModalVisible} transparent animationType="fade" onRequestClose={() => setEditModalVisible(false)}>
+        <View className="flex-1 justify-center items-center p-6" style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}>
+          <View className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full" style={{ maxWidth: 440 }}>
+            <Text className="text-lg font-bold text-[#1e2d6e] dark:text-white mb-5">Editar Funcionário</Text>
+
+            {/* Nome */}
+            <View className="mb-3">
+              <Text className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Nome completo *</Text>
+              <TextInput
+                className="h-11 border border-gray-300 dark:border-gray-600 rounded-lg px-3 text-sm text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-900"
+                style={{ outline: 'none' } as any}
+                value={editForm.nome}
+                onChangeText={v => setEditForm(p => ({ ...p, nome: v }))}
+                placeholder="Ex: João da Silva"
+                placeholderTextColor={ph}
+                autoFocus
+              />
+            </View>
+
+            <View className="flex-row gap-3 mb-3">
+              {/* Username */}
+              <View className="flex-1">
+                <Text className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Usuário *</Text>
+                <TextInput
+                  className="h-11 border border-gray-300 dark:border-gray-600 rounded-lg px-3 text-sm text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-900"
+                  style={{ outline: 'none' } as any}
+                  value={editForm.username}
+                  onChangeText={v => setEditForm(p => ({ ...p, username: v.toLowerCase().replace(/\s/g, '') }))}
+                  placeholder="joaosilva"
+                  placeholderTextColor={ph}
+                  autoCapitalize="none"
+                />
+              </View>
+              {/* Nova Senha */}
+              <View className="flex-1">
+                <Text className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Nova senha</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', height: 44, borderWidth: 1, borderColor: isDark ? '#4b5563' : '#d1d5db', borderRadius: 8, backgroundColor: isDark ? '#111827' : '#fff', overflow: 'hidden' }}>
+                  <TextInput
+                    style={{ flex: 1, minWidth: 0, paddingHorizontal: 12, fontSize: 14, color: isDark ? '#f3f4f6' : '#1f2937', outline: 'none' } as any}
+                    value={editForm.senha}
+                    onChangeText={v => setEditForm(p => ({ ...p, senha: v }))}
+                    placeholder="vazio = sem alterar"
+                    placeholderTextColor={ph}
+                    secureTextEntry={!showEditSenha}
+                  />
+                  <TouchableOpacity style={{ width: 36, height: 44, alignItems: 'center', justifyContent: 'center' }} onPress={() => setShowEditSenha(v => !v)}>
+                    <Ionicons name={showEditSenha ? 'eye-outline' : 'eye-off-outline'} size={18} color="#9ca3af" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+
+            {/* Email */}
+            <View className="mb-4">
+              <Text className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">E-mail *</Text>
+              <TextInput
+                className="h-11 border border-gray-300 dark:border-gray-600 rounded-lg px-3 text-sm text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-900"
+                style={{ outline: 'none' } as any}
+                value={editForm.email}
+                onChangeText={v => setEditForm(p => ({ ...p, email: v }))}
+                placeholder="joao@empresa.com"
+                placeholderTextColor={ph}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+
+            {/* Perfil */}
+            <View className="mb-5">
+              <Text className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Perfil</Text>
+              <View className="flex-row gap-2">
+                {PERFIS.map(p => (
+                  <TouchableOpacity
+                    key={p}
+                    onPress={() => setEditForm(f => ({ ...f, perfil: p }))}
+                    className={`flex-1 h-10 rounded-lg border items-center justify-center ${
+                      editForm.perfil === p
+                        ? 'bg-[#3b5fe0] border-[#3b5fe0]'
+                        : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900'
+                    }`}
+                    activeOpacity={0.8}
+                  >
+                    <Text className={`text-sm font-medium ${editForm.perfil === p ? 'text-white' : 'text-gray-600 dark:text-gray-400'}`}>
+                      {PERFIL_LABEL[p]}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Erro */}
+            {!!editErro && (
+              <View className="flex-row items-center gap-1.5 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-lg px-3 py-2.5 mb-4">
+                <Ionicons name="alert-circle-outline" size={14} color="#dc2626" />
+                <Text className="flex-1 text-xs text-red-600 dark:text-red-400">{editErro}</Text>
+              </View>
+            )}
+
+            <View className="flex-row gap-2.5">
+              <TouchableOpacity
+                className="flex-1 h-11 rounded-xl border border-gray-200 dark:border-gray-600 items-center justify-center"
+                onPress={() => setEditModalVisible(false)}
+              >
+                <Text className="text-sm font-medium text-gray-500 dark:text-gray-400">Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                className={`flex-1 h-11 rounded-xl bg-[#3b5fe0] items-center justify-center ${saving ? 'opacity-50' : ''}`}
+                onPress={handleUpdate}
+                disabled={saving}
+              >
+                <Text className="text-sm font-semibold text-white">Salvar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Confirmar Deleção */}
+      <Modal visible={deleteModalVisible} transparent animationType="fade" onRequestClose={() => setDeleteModalVisible(false)}>
+        <View className="flex-1 justify-center items-center p-6" style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}>
+          <View className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full" style={{ maxWidth: 400 }}>
+            <View className="items-center mb-4">
+              <View className="w-12 h-12 rounded-full bg-red-50 dark:bg-red-950/30 items-center justify-center mb-3">
+                <Ionicons name="trash-outline" size={24} color="#ef4444" />
+              </View>
+              <Text className="text-lg font-bold text-gray-800 dark:text-white">Confirmar Deleção</Text>
+              <Text className="text-sm text-gray-500 dark:text-gray-400 text-center mt-1">
+                Você está prestes a remover o usuário <Text className="font-bold text-gray-700 dark:text-gray-200">{userToDelete?.nome}</Text>.
+              </Text>
+            </View>
+
+            <View className="mb-6">
+              <Text className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2.5">Selecione o motivo:</Text>
+              <View className="gap-2">
+                <TouchableOpacity
+                  onPress={() => setDeleteReason('delecao')}
+                  className={`flex-row items-center gap-3 p-3 rounded-xl border ${
+                    deleteReason === 'delecao'
+                      ? 'bg-blue-50 dark:bg-blue-950/20 border-[#3b5fe0]'
+                      : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900'
+                  }`}
+                  activeOpacity={0.8}
+                >
+                  <View className={`w-4 h-4 rounded-full border items-center justify-center ${deleteReason === 'delecao' ? 'border-[#3b5fe0]' : 'border-gray-300'}`}>
+                    {deleteReason === 'delecao' && <View className="w-2 h-2 rounded-full bg-[#3b5fe0]" />}
+                  </View>
+                  <View>
+                    <Text className={`text-sm font-semibold ${deleteReason === 'delecao' ? 'text-[#3b5fe0]' : 'text-gray-700 dark:text-gray-300'}`}>Erro de Cadastro / Deleção</Text>
+                    <Text className="text-xs text-gray-400">Remover registro indevido ou duplicado</Text>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => setDeleteReason('demissao')}
+                  className={`flex-row items-center gap-3 p-3 rounded-xl border ${
+                    deleteReason === 'demissao'
+                      ? 'bg-blue-50 dark:bg-blue-950/20 border-[#3b5fe0]'
+                      : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900'
+                  }`}
+                  activeOpacity={0.8}
+                >
+                  <View className={`w-4 h-4 rounded-full border items-center justify-center ${deleteReason === 'demissao' ? 'border-[#3b5fe0]' : 'border-gray-300'}`}>
+                    {deleteReason === 'demissao' && <View className="w-2 h-2 rounded-full bg-[#3b5fe0]" />}
+                  </View>
+                  <View>
+                    <Text className={`text-sm font-semibold ${deleteReason === 'demissao' ? 'text-[#3b5fe0]' : 'text-gray-700 dark:text-gray-300'}`}>Demissão / Desligamento</Text>
+                    <Text className="text-xs text-gray-400">Inativar acesso por saída da empresa</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View className="flex-row gap-2.5">
+              <TouchableOpacity
+                className="flex-1 h-11 rounded-xl border border-gray-200 dark:border-gray-600 items-center justify-center"
+                onPress={() => {
+                  setDeleteModalVisible(false);
+                  setUserToDelete(null);
+                }}
+              >
+                <Text className="text-sm font-medium text-gray-500 dark:text-gray-400">Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                className={`flex-1 h-11 rounded-xl bg-red-500 items-center justify-center ${saving ? 'opacity-50' : ''}`}
+                onPress={handleDelete}
+                disabled={saving}
+              >
+                <Text className="text-sm font-semibold text-white">Confirmar</Text>
               </TouchableOpacity>
             </View>
           </View>
