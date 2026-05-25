@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { Platform } from 'react-native';
 
-const BASE_URL = 'http://localhost:8080';
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8080';
 const TOKEN_KEY = 'baustein_token';
 const PERFIL_KEY = 'baustein_perfil';
 const NOME_KEY = 'baustein_nome';
@@ -91,7 +91,8 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
       headers: {
         'Content-Type': 'application/json',
         ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-...(options?.headers ?? {}),
+        ...(BASE_URL.includes('ngrok') ? { 'ngrok-skip-browser-warning': 'true' } : {}),
+        ...(options?.headers ?? {}),
       },
     });
   } catch {
