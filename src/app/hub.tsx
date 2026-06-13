@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from 'nativewind';
 import { AppHeader } from '@/components/layout/app-header';
 import { api, Empresa, getNome, getPerfil, getEmpresaId, MODULOS } from '@/services/api';
+import { decodeId, encodeId } from '@/services/idHash';
 
 export default function HubScreen() {
 
@@ -25,10 +26,10 @@ export default function HubScreen() {
   const isDev = getPerfil() === 'dev';
 
   const [empresaAtual, setEmpresaAtual] = useState<{ id: number; nome: string }>({
-    id: Number(params.empresaId) || 0,
+    id: decodeId(params.empresaId) || 0,
     nome: params.empresaName ?? 'Carregando...',
   });
-  const [grupoId, setGrupoId] = useState<number>(Number(params.grupoId) || 0);
+  const [grupoId, setGrupoId] = useState<number>(decodeId(params.grupoId) || 0);
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [loadingEmpresas, setLoadingEmpresas] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -228,7 +229,7 @@ export default function HubScreen() {
                   justifyContent: 'center',
                 }}
                 activeOpacity={0.85}
-                onPress={() => router.push({ pathname: '/funcionarios' as any, params: { empresaId: empresaAtual.id, empresaName: empresaAtual.nome } })}
+                onPress={() => router.push({ pathname: '/funcionarios' as any, params: { empresaId: encodeId(empresaAtual.id), empresaName: empresaAtual.nome, grupoId: encodeId(grupoId) } })}
               >
                 <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Acessar</Text>
               </TouchableOpacity>
@@ -280,11 +281,63 @@ export default function HubScreen() {
                   justifyContent: 'center',
                 }}
                 activeOpacity={0.85}
-                onPress={() => router.push({ pathname: '/ponto' as any, params: { empresaId: empresaAtual.id, empresaName: empresaAtual.nome } })}
+                onPress={() => router.push({ pathname: '/ponto' as any, params: { empresaId: encodeId(empresaAtual.id), empresaName: empresaAtual.nome } })}
               >
                 <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Acessar</Text>
               </TouchableOpacity>
             </View>}
+
+            {/* Card Financeiro */}
+            <View style={{
+              width: isMobile ? '100%' : 300,
+              height: isMobile ? undefined : 300,
+              backgroundColor: isDark ? '#1C1F2E' : '#fff',
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: isDark ? '#374151' : '#e2e5ea',
+              padding: isMobile ? 16 : 24,
+              gap: 16,
+              justifyContent: 'space-between',
+            }}>
+              {/* Ícone + Data */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <View style={{
+                  width: 44, height: 44, borderRadius: 12,
+                  backgroundColor: '#dcfce7',
+                  alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Ionicons name="wallet-outline" size={24} color="#16a34a" />
+                </View>
+                <Text style={{ fontSize: 13, color: '#6b7280', flex: 1 }}>
+                  {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                </Text>
+              </View>
+
+              {/* Título */}
+              <View style={{ gap: 4 }}>
+                <Text style={{ fontSize: 28, fontWeight: '700', color: isDark ? '#fff' : '#1e2d6e' }}>
+                  Financeiro
+                </Text>
+                <Text style={{ fontSize: 14, color: '#6b7280' }}>
+                  Relatórios, contas e fluxo de caixa
+                </Text>
+              </View>
+
+              {/* Botão */}
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#16a34a',
+                  borderRadius: 8,
+                  height: 44,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                activeOpacity={0.85}
+                onPress={() => router.push({ pathname: '/financeiro' as any, params: { empresaId: encodeId(empresaAtual.id), empresaName: empresaAtual.nome, grupoId: encodeId(grupoId) } })}
+              >
+                <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Acessar</Text>
+              </TouchableOpacity>
+            </View>
 
           </View>
         </View>

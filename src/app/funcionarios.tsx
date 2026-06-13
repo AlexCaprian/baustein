@@ -16,6 +16,7 @@ import { useColorScheme } from 'nativewind';
 import { AppHeader } from '@/components/layout/app-header';
 import { LoadingOverlay } from '@/components/ui/loading-overlay';
 import { api, getPerfil, Usuario, UsuarioInput } from '../services/api';
+import { decodeId } from '../services/idHash';
 
 const PAGE_LIMIT = 20;
 
@@ -73,7 +74,7 @@ export default function FuncionariosScreen() {
   const contentWidth = width - (isMobile ? 32 : 48);
   const cardW = isMobile ? Math.floor((contentWidth - 16) / 2) : 220;
   const params = useLocalSearchParams<{ empresaId: string; empresaName: string; grupoId: string }>();
-  const empresaId = Number(params.empresaId);
+  const empresaId = decodeId(params.empresaId);
   const empresaName = params.empresaName ?? 'Empresa';
   const isDev = getPerfil() === 'dev';
 

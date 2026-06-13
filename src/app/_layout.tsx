@@ -51,7 +51,7 @@ export default function RootLayout() {
   return (
     <View style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? Colors.dark.background : Colors.light.background }}>
       <Head>
-        <title>Baustein</title>
+        <title>Operkit</title>
       </Head>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <ThemeInitializer />
@@ -61,6 +61,7 @@ export default function RootLayout() {
           <Stack.Screen name="hub" />
           <Stack.Screen name="funcionarios" />
           <Stack.Screen name="ponto" />
+          <Stack.Screen name="financeiro" />
         </Stack>
         <AuthGuard />
       </ThemeProvider>

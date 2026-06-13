@@ -14,6 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from 'nativewind';
 import { api, Empresa, EmpresaInput, Grupo, MODULOS, MODULOS_INFO, getPerfil } from '../services/api';
+import { encodeId } from '../services/idHash';
 import { AppHeader } from '@/components/layout/app-header';
 import { LoadingOverlay } from '@/components/ui/loading-overlay';
 
@@ -177,7 +178,7 @@ export default function SelectEmpresaScreen() {
   };
 
   const selectEmpresa = (e: Empresa) =>
-    router.replace({ pathname: '/hub', params: { empresaId: e.id, empresaName: e.nome_fantasia, grupoId: e.grupo_id } } as any);
+    router.replace({ pathname: '/hub', params: { empresaId: encodeId(e.id), empresaName: e.nome_fantasia, grupoId: encodeId(e.grupo_id) } } as any);
 
   // ─── Módulos CRUD ──────────────────────────────────────────────────────────
 
@@ -278,7 +279,7 @@ export default function SelectEmpresaScreen() {
                     <Text className="text-xs text-gray-400 dark:text-gray-500">{empresas.length}</Text>
                   </View>
                   <TouchableOpacity className="p-1" onPress={() => setGrupoModal({ visible: true, editing: grupo, nome: grupo.nome })} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                    <Ionicons name="pencil-outline" size={17} color={isDark ? '#6b7280' : '#6b7280'} />
+                    <Ionicons name="create-outline" size={17} color={isDark ? '#6b7280' : '#6b7280'} />
                   </TouchableOpacity>
                   <TouchableOpacity className="p-1" onPress={() => confirmDeleteGrupo(grupo)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                     <Ionicons name="trash-outline" size={17} color="#ef4444" />
@@ -315,7 +316,7 @@ export default function SelectEmpresaScreen() {
                           </TouchableOpacity>
                         )}
                         <TouchableOpacity className="p-1" onPress={() => setEmpresaModal({ visible: true, editing: emp, grupoId: emp.grupo_id, nome_fantasia: emp.nome_fantasia, razao_social: emp.razao_social, cnpj: emp.cnpj })} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                          <Ionicons name="pencil-outline" size={16} color={isDark ? '#6b7280' : '#6b7280'} />
+                          <Ionicons name="create-outline" size={16} color={isDark ? '#6b7280' : '#6b7280'} />
                         </TouchableOpacity>
                         <TouchableOpacity className="p-1" onPress={() => confirmDeleteEmpresa(emp)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                           <Ionicons name="trash-outline" size={16} color="#ef4444" />

@@ -17,6 +17,7 @@ import * as XLSX from 'xlsx';
 import { AppHeader } from '@/components/layout/app-header';
 import { LoadingOverlay } from '@/components/ui/loading-overlay';
 import { api, Batida, RegistroPonto, Usuario } from '@/services/api';
+import { decodeId } from '@/services/idHash';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -172,7 +173,7 @@ export default function PontoScreen() {
   const { width } = useWindowDimensions();
   const isMobile = width < 640;
   const params = useLocalSearchParams<{ empresaId: string; empresaName: string }>();
-  const empresaId = Number(params.empresaId);
+  const empresaId = decodeId(params.empresaId);
   const empresaName = params.empresaName ?? '';
 
   const [dateFrom, setDateFrom] = useState(defaultDateFrom);
@@ -474,7 +475,7 @@ export default function PontoScreen() {
         {/* Título + back */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 20 }}>
           <TouchableOpacity
-            onPress={() => router.push({ pathname: '/hub' as any, params: { empresaId, empresaName } })}
+            onPress={() => router.push({ pathname: '/hub' as any, params: { empresaId: params.empresaId, empresaName } })}
             style={{ padding: 6, borderRadius: 8, backgroundColor: isDark ? '#1f2937' : '#f1f5f9' }}
             activeOpacity={0.7}
           >
@@ -713,7 +714,7 @@ export default function PontoScreen() {
                           </View>
                         ))}
                         {!isWeekend && (r.batidas ?? []).length > 0 && (
-                          <Ionicons name="pencil-outline" size={11} color={isDark ? '#374151' : '#cbd5e1'} />
+                          <Ionicons name="create-outline" size={11} color={isDark ? '#374151' : '#cbd5e1'} />
                         )}
                       </TouchableOpacity>
                       {/* H. Trabalhadas */}
