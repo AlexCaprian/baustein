@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from 'nativewind';
-import { api, Empresa, EmpresaInput, Grupo, MODULOS, MODULOS_INFO, getPerfil } from '../services/api';
+import { api, AcessoUsuario, Empresa, EmpresaInput, Grupo, MODULOS, MODULOS_INFO, getPerfil } from '../services/api';
 import { encodeId } from '../services/idHash';
 import { AppHeader } from '@/components/layout/app-header';
 import { LoadingOverlay } from '@/components/ui/loading-overlay';
@@ -35,6 +35,11 @@ type ModulosModal = {
   modulos: string[];
   isDefault: boolean;
 };
+type AcessosModal = {
+  visible: boolean;
+  empresa: Empresa | null;
+  usuarios: AcessoUsuario[];
+};
 
 const EMPTY_GRUPO: GrupoModal = { visible: false, editing: null, nome: '' };
 const EMPTY_EMPRESA: EmpresaModal = {
@@ -42,6 +47,17 @@ const EMPTY_EMPRESA: EmpresaModal = {
   nome_fantasia: '', razao_social: '', cnpj: '',
 };
 const EMPTY_MODULOS: ModulosModal = { visible: false, empresa: null, modulos: [], isDefault: true };
+const EMPTY_ACESSOS: AcessosModal = { visible: false, empresa: null, usuarios: [] };
+
+const PERFIL_COLORS: Record<string, { bg: string; bgDark: string; text: string }> = {
+  funcionario: { bg: '#eff6ff', bgDark: '#1e3a5f', text: '#3b5fe0' },
+  admin:       { bg: '#fefce8', bgDark: '#3b2a05', text: '#ca8a04' },
+};
+
+const PERFIL_LABEL: Record<string, string> = {
+  funcionario: 'Funcionário',
+  admin: 'Admin',
+};
 
 // ─── CNPJ helpers ────────────────────────────────────────────────────────────
 
@@ -74,8 +90,12 @@ export default function SelectEmpresaScreen() {
   const [grupoModal, setGrupoModal] = useState<GrupoModal>(EMPTY_GRUPO);
   const [empresaModal, setEmpresaModal] = useState<EmpresaModal>(EMPTY_EMPRESA);
   const [modulosModal, setModulosModal] = useState<ModulosModal>(EMPTY_MODULOS);
+  const [acessosModal, setAcessosModal] = useState<AcessosModal>(EMPTY_ACESSOS);
+  const [loadingAcessos, setLoadingAcessos] = useState(false);
   const [saving, setSaving] = useState(false);
   const isDev = getPerfil() === 'dev';
+  const isMaster = getPerfil() === 'master';
+  const canManage = isDev || isMaster;
 
   // ─── Load ──────────────────────────────────────────────────────────────────
 
@@ -214,6 +234,47 @@ export default function SelectEmpresaScreen() {
     }
   };
 
+  // ─── Acessos ────────────────────────────────────────────────────────────
+
+  const openAcessosModal = async (emp: Empresa) => {
+    setAcessosModal({ visible: true, empresa: emp, usuarios: [] });
+    setLoadingAcessos(true);
+    try {
+      const res = await api.empresas.acessos.get(emp.id);
+      setAcessosModal({ visible: true, empresa: emp, usuarios: res.usuarios ?? [] });
+    } catch (e: any) {
+      Alert.alert('Erro', e.message);
+      setAcessosModal(EMPTY_ACESSOS);
+    } finally {
+      setLoadingAcessos(false);
+    }
+  };
+
+  const toggleAcesso = (usuarioId: number) => {
+    setAcessosModal(p => ({
+      ...p,
+      usuarios: p.usuarios.map(u =>
+        u.id === usuarioId && u.empresa_id !== p.empresa?.id
+          ? { ...u, tem_acesso: !u.tem_acesso }
+          : u
+      ),
+    }));
+  };
+
+  const saveAcessos = async () => {
+    if (!acessosModal.empresa) return;
+    setSaving(true);
+    try {
+      const ids = acessosModal.usuarios.filter(u => u.tem_acesso).map(u => u.id);
+      await api.empresas.acessos.set(acessosModal.empresa.id, ids);
+      setAcessosModal(EMPTY_ACESSOS);
+    } catch (e: any) {
+      Alert.alert('Erro', e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // ─── Render ────────────────────────────────────────────────────────────────
 
   const ph = isDark ? '#4b5563' : '#bbb';
@@ -310,10 +371,15 @@ export default function SelectEmpresaScreen() {
                         >
                           <Text className="text-xs font-semibold text-[#3b5fe0] dark:text-indigo-400">Entrar</Text>
                         </TouchableOpacity>
-                        {isDev && (
-                          <TouchableOpacity className="p-1" onPress={() => openModulosModal(emp)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                            <Ionicons name="apps-outline" size={16} color={isDark ? '#6b7280' : '#6b7280'} />
-                          </TouchableOpacity>
+                        {canManage && (
+                          <>
+                            <TouchableOpacity className="p-1" onPress={() => openModulosModal(emp)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                              <Ionicons name="apps-outline" size={16} color={isDark ? '#6b7280' : '#6b7280'} />
+                            </TouchableOpacity>
+                            <TouchableOpacity className="p-1" onPress={() => openAcessosModal(emp)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                              <Ionicons name="people-outline" size={16} color={isDark ? '#6b7280' : '#6b7280'} />
+                            </TouchableOpacity>
+                          </>
                         )}
                         <TouchableOpacity className="p-1" onPress={() => setEmpresaModal({ visible: true, editing: emp, grupoId: emp.grupo_id, nome_fantasia: emp.nome_fantasia, razao_social: emp.razao_social, cnpj: emp.cnpj })} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                           <Ionicons name="create-outline" size={16} color={isDark ? '#6b7280' : '#6b7280'} />
@@ -529,6 +595,94 @@ export default function SelectEmpresaScreen() {
                 className={`flex-1 h-11 rounded-xl bg-[#3b5fe0] items-center justify-center ${saving ? 'opacity-50' : ''}`}
                 onPress={saveModulos}
                 disabled={saving}
+              >
+                <Text className="text-sm font-semibold text-white">Salvar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Modal Acessos ────────────────────────────────────────────────── */}
+      <Modal visible={acessosModal.visible} transparent animationType="fade" onRequestClose={() => setAcessosModal(EMPTY_ACESSOS)}>
+        <View className="flex-1 justify-center items-center p-6" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
+          <View className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full" style={{ maxWidth: 420, maxHeight: '80%' }}>
+
+            <Text className="text-lg font-bold text-[#1e2d6e] dark:text-white mb-0.5">Acessos</Text>
+            <Text className="text-xs text-gray-400 dark:text-gray-500 mb-4" numberOfLines={1}>
+              {acessosModal.empresa?.nome_fantasia}
+            </Text>
+
+            {loadingAcessos ? (
+              <View style={{ paddingVertical: 24, alignItems: 'center' }}>
+                <Text className="text-xs text-gray-400 dark:text-gray-500">Carregando...</Text>
+              </View>
+            ) : acessosModal.usuarios.length === 0 ? (
+              <View style={{ paddingVertical: 24, alignItems: 'center' }}>
+                <Text className="text-xs text-gray-400 dark:text-gray-500">Nenhum usuário disponível</Text>
+              </View>
+            ) : (
+              <ScrollView style={{ maxHeight: 360 }} contentContainerStyle={{ gap: 8 }}>
+                {acessosModal.usuarios.map(u => {
+                  const isHome = u.empresa_id === acessosModal.empresa?.id;
+                  const cores = PERFIL_COLORS[u.perfil];
+                  return (
+                    <TouchableOpacity
+                      key={u.id}
+                      onPress={() => !isHome && toggleAcesso(u.id)}
+                      disabled={isHome}
+                      style={{
+                        flexDirection: 'row', alignItems: 'center', gap: 12,
+                        padding: 14, borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: u.tem_acesso ? '#3b5fe0' : (isDark ? '#374151' : '#e5e7eb'),
+                        backgroundColor: u.tem_acesso ? (isDark ? '#1e3a5f' : '#eff6ff') : (isDark ? '#111827' : '#fff'),
+                        opacity: isHome ? 0.7 : 1,
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 14, fontWeight: '600', color: isDark ? '#d1d5db' : '#374151' }} numberOfLines={1}>
+                          {u.nome}
+                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                          {cores && (
+                            <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, backgroundColor: isDark ? cores.bgDark : cores.bg }}>
+                              <Text style={{ fontSize: 11, fontWeight: '600', color: cores.text }}>
+                                {PERFIL_LABEL[u.perfil] ?? u.perfil}
+                              </Text>
+                            </View>
+                          )}
+                          {isHome && (
+                            <Text style={{ fontSize: 11, color: isDark ? '#6b7280' : '#9ca3af' }}>Empresa de origem</Text>
+                          )}
+                        </View>
+                      </View>
+                      <View style={{
+                        width: 22, height: 22, borderRadius: 11, borderWidth: 2,
+                        borderColor: u.tem_acesso ? '#3b5fe0' : (isDark ? '#4b5563' : '#d1d5db'),
+                        backgroundColor: u.tem_acesso ? '#3b5fe0' : 'transparent',
+                        alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        {u.tem_acesso && <Ionicons name="checkmark" size={13} color="#fff" />}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            )}
+
+            <View className="flex-row gap-2.5 mt-4">
+              <TouchableOpacity
+                className="flex-1 h-11 rounded-xl border border-gray-200 dark:border-gray-600 items-center justify-center"
+                onPress={() => setAcessosModal(EMPTY_ACESSOS)}
+              >
+                <Text className="text-sm font-medium text-gray-500 dark:text-gray-400">Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                className={`flex-1 h-11 rounded-xl bg-[#3b5fe0] items-center justify-center ${(saving || loadingAcessos) ? 'opacity-50' : ''}`}
+                onPress={saveAcessos}
+                disabled={saving || loadingAcessos}
               >
                 <Text className="text-sm font-semibold text-white">Salvar</Text>
               </TouchableOpacity>

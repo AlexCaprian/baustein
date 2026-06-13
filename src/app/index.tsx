@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from 'nativewind';
-import { api, setToken, setPerfil, setNome, setEmpresaId } from '../services/api';
+import { api, setToken, setPerfil, setNome, setEmpresaId, setUserId } from '../services/api';
 import { LoadingOverlay } from '@/components/ui/loading-overlay';
 
 function friendlyError(raw: string): string {
@@ -59,6 +59,7 @@ export default function LoginScreen() {
       setPerfil(res.perfil);
       setNome(res.nome);
       setEmpresaId(res.empresa_id);
+      setUserId(res.user_id);
       router.replace(res.redirect as any);
     } catch (e: any) {
       setErro(friendlyError(e.message ?? ''));

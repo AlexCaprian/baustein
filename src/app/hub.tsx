@@ -11,7 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from 'nativewind';
 import { AppHeader } from '@/components/layout/app-header';
-import { api, Empresa, getNome, getPerfil, getEmpresaId, MODULOS } from '@/services/api';
+import { api, Empresa, getNome, getPerfil, getEmpresaId, getUserId, MODULOS } from '@/services/api';
 import { decodeId, encodeId } from '@/services/idHash';
 
 export default function HubScreen() {
@@ -24,6 +24,7 @@ export default function HubScreen() {
   const params = useLocalSearchParams<{ empresaId: string; empresaName: string; grupoId: string }>();
 
   const isDev = getPerfil() === 'dev';
+  const isMaster = getPerfil() === 'master';
 
   const [empresaAtual, setEmpresaAtual] = useState<{ id: number; nome: string }>({
     id: decodeId(params.empresaId) || 0,
@@ -59,7 +60,27 @@ export default function HubScreen() {
     }
   }, []);
 
-  useEffect(() => { if (grupoId) loadEmpresas(grupoId); }, [grupoId, loadEmpresas]);
+  const loadEmpresasUsuario = useCallback(async () => {
+    const userId = getUserId();
+    if (!userId) return;
+    setLoadingEmpresas(true);
+    try {
+      const res = await api.usuarios.empresas(userId);
+      setEmpresas(res.empresas ?? []);
+    } catch {
+      // silencioso — dropdown só não mostra outras empresas
+    } finally {
+      setLoadingEmpresas(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isDev || isMaster) {
+      if (grupoId) loadEmpresas(grupoId);
+    } else {
+      loadEmpresasUsuario();
+    }
+  }, [grupoId, isDev, isMaster, loadEmpresas, loadEmpresasUsuario]);
 
   useEffect(() => {
     if (!empresaAtual.id) return;
@@ -77,6 +98,7 @@ export default function HubScreen() {
 
   const trocarEmpresa = (e: Empresa) => {
     setEmpresaAtual({ id: e.id, nome: e.nome_fantasia });
+    setGrupoId(e.grupo_id);
     setTotalFuncionarios(null);
     setDropdownOpen(false);
   };

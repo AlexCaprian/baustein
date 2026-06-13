@@ -6,6 +6,7 @@ const TOKEN_KEY = 'operkit_token';
 const PERFIL_KEY = 'operkit_perfil';
 const NOME_KEY = 'operkit_nome';
 const EMPRESA_ID_KEY = 'operkit_empresa_id';
+const USER_ID_KEY = 'operkit_user_id';
 
 function readStorage(key: string): string {
   if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
@@ -26,6 +27,7 @@ function clearStorage() {
     localStorage.removeItem(PERFIL_KEY);
     localStorage.removeItem(NOME_KEY);
     localStorage.removeItem(EMPRESA_ID_KEY);
+    localStorage.removeItem(USER_ID_KEY);
   }
 }
 
@@ -33,6 +35,7 @@ let authToken = readStorage(TOKEN_KEY);
 let authPerfil = readStorage(PERFIL_KEY);
 let authNome = readStorage(NOME_KEY);
 let authEmpresaId = readStorage(EMPRESA_ID_KEY);
+let authUserId = readStorage(USER_ID_KEY);
 
 export function setToken(token: string) {
   authToken = token;
@@ -68,6 +71,16 @@ export function setEmpresaId(id: number | null) {
 
 export function getEmpresaId(): number | null {
   const v = authEmpresaId || readStorage(EMPRESA_ID_KEY);
+  return v ? Number(v) : null;
+}
+
+export function setUserId(id: number | null) {
+  authUserId = id != null ? String(id) : '';
+  writeStorage(USER_ID_KEY, authUserId);
+}
+
+export function getUserId(): number | null {
+  const v = authUserId || readStorage(USER_ID_KEY);
   return v ? Number(v) : null;
 }
 
@@ -150,6 +163,15 @@ export interface Usuario {
   email: string;
   perfil: string;
   hora_trabalha?: number;
+}
+
+export interface AcessoUsuario {
+  id: number;
+  nome: string;
+  username: string;
+  perfil: string;
+  empresa_id: number | null;
+  tem_acesso: boolean;
 }
 
 export interface UsuarioInput {
@@ -245,6 +267,8 @@ export const api = {
       }),
     getStats: (empresaId: number) =>
       request<HRStat[]>(`/api/usuarios/stats?empresa_id=${empresaId}`),
+    empresas: (id: number) =>
+      request<{ empresas: Empresa[] }>(`/api/usuarios/${id}/empresas`),
   },
 
   ponto: {
@@ -283,5 +307,14 @@ export const api = {
       request<Empresa>(`/api/empresas/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id: number) =>
       request<{ message: string }>(`/api/empresas/${id}`, { method: 'DELETE' }),
+    acessos: {
+      get: (id: number) =>
+        request<{ usuarios: AcessoUsuario[] }>(`/api/empresas/${id}/acessos`),
+      set: (id: number, usuarioIds: number[]) =>
+        request<{ message: string }>(`/api/empresas/${id}/acessos`, {
+          method: 'PUT',
+          body: JSON.stringify({ usuario_ids: usuarioIds }),
+        }),
+    },
   },
 };
