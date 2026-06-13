@@ -6,7 +6,7 @@ import { useColorScheme } from 'nativewind';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { logout, getNome } from '@/services/api';
 
-const THEME_KEY = 'baustein_theme';
+const THEME_KEY = 'operkit_theme';
 
 function getInitials(nome: string): string {
   const words = nome.trim().split(/\s+/);
@@ -66,7 +66,7 @@ export function AppHeader({ right, left, topBar }: AppHeaderProps) {
             style={{ width: 28, height: 28, marginRight: 8, flexShrink: 0 }}
             resizeMode="contain"
           />
-          <Text className="text-lg font-bold text-[#1e2d6e] dark:text-white" numberOfLines={1} style={{ flexShrink: 1 }}>Baustein</Text>
+          <Text className="text-lg font-bold text-[#1e2d6e] dark:text-white" numberOfLines={1} style={{ flexShrink: 1 }}>Operkit</Text>
           {left}
         </View>
 

@@ -1,11 +1,11 @@
 import { router } from 'expo-router';
 import { Platform } from 'react-native';
 
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8080';
-const TOKEN_KEY = 'baustein_token';
-const PERFIL_KEY = 'baustein_perfil';
-const NOME_KEY = 'baustein_nome';
-const EMPRESA_ID_KEY = 'baustein_empresa_id';
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.18.152:8080';
+const TOKEN_KEY = 'operkit_token';
+const PERFIL_KEY = 'operkit_perfil';
+const NOME_KEY = 'operkit_nome';
+const EMPRESA_ID_KEY = 'operkit_empresa_id';
 
 function readStorage(key: string): string {
   if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {

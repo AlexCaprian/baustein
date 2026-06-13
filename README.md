@@ -1,6 +1,6 @@
-# Baustein — Frontend
+# Operkit — Frontend
 
-Aplicativo móvel e web do projeto Baustein, desenvolvido com Expo (React Native) e Expo Router.
+Aplicativo móvel e web do projeto Operkit, desenvolvido com Expo (React Native) e Expo Router.
 
 ## Tecnologias
 
@@ -65,7 +65,7 @@ O token JWT e os dados do usuário logado (`nome`, `perfil`, `empresa_id`) são 
 ### Pré-requisitos
 
 - Node.js 18+
-- Backend rodando em `http://localhost:8080` (ver `backend/README.md`)
+- Backend rodando em `http://192.168.18.152:8080` (ver `backend/README.md`)
 
 ### Instalar dependências
 
@@ -84,10 +84,10 @@ Pressione `w` para abrir no browser, `a` para Android ou `i` para iOS.
 
 ## Variáveis de ambiente
 
-A URL da API é definida diretamente em `src/services/api.ts`:
+A URL da API é definida em `.env.local` ou via fallback em `src/services/api.ts`:
 
 ```ts
-const BASE_URL = 'http://localhost:8080';
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.18.152:8080';
 ```
 
 Altere esse valor conforme o ambiente de deploy.

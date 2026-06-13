@@ -88,7 +88,7 @@ export function AppSplashScreen({ visible, onHidden }: AppSplashScreenProps) {
 
         {/* Nome do app */}
         <Animated.View style={[styles.brandRow, textStyle]}>
-          <Text style={[styles.brandName, { color: theme.text }]}>Baustein</Text>
+          <Text style={[styles.brandName, { color: theme.text }]}>Operkit</Text>
         </Animated.View>
       </View>
     </Animated.View>

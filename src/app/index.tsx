@@ -87,7 +87,7 @@ export default function LoginScreen() {
             resizeMode="contain"
           />
           <Text className="text-2xl font-bold text-[#1e2d6e] dark:text-white" style={{ letterSpacing: -0.3 }}>
-            Baustein
+            Operkit
           </Text>
         </View>
 
