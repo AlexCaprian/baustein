@@ -1,7 +1,8 @@
 import { router } from 'expo-router';
 import { Platform } from 'react-native';
 
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.18.152:8080';
+// TODO produção: alterar para a URL de produção ou definir EXPO_PUBLIC_API_URL no ambiente
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8080';
 const TOKEN_KEY = 'operkit_token';
 const PERFIL_KEY = 'operkit_perfil';
 const NOME_KEY = 'operkit_nome';
@@ -113,8 +114,8 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   }
   const data = await res.json();
   if (res.status === 401) {
-    redirectToLogin();
-    throw new Error('UNAUTHORIZED');
+    if (authToken) redirectToLogin();
+    throw new Error(data.error ?? 'UNAUTHORIZED');
   }
   if (!res.ok) throw new Error(data.error ?? 'Erro na requisição');
   return data as T;
@@ -122,12 +123,14 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
 // ─── Módulos (enum) ──────────────────────────────────────────────────────────
 
-export const MODULOS = ['funcionarios', 'pontos'] as const;
+export const MODULOS = ['funcionarios', 'pontos', 'estoque', 'financeiro'] as const;
 export type Modulo = typeof MODULOS[number];
 
 export const MODULOS_INFO: Record<Modulo, { label: string; icon: string; color: string; bgColor: string }> = {
-  funcionarios: { label: 'Funcionários',      icon: 'people-outline', color: '#3b5fe0', bgColor: '#eef1fd' },
-  pontos:       { label: 'Controle de Ponto', icon: 'time-outline',   color: '#d97706', bgColor: '#fef3c7' },
+  funcionarios: { label: 'Funcionários',      icon: 'people-outline',   color: '#3b5fe0', bgColor: '#eef1fd' },
+  pontos:       { label: 'Controle de Ponto', icon: 'time-outline',     color: '#d97706', bgColor: '#fef3c7' },
+  estoque:      { label: 'Estoque',           icon: 'cube-outline',     color: '#059669', bgColor: '#d1fae5' },
+  financeiro:   { label: 'Financeiro',        icon: 'cash-outline',     color: '#7c3aed', bgColor: '#ede9fe' },
 };
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -227,6 +230,86 @@ export interface RegistroPonto {
   observacao: string;
 }
 
+// ─── Financeiro: Categorias e Lançamentos ─────────────────────────────────────
+
+export interface ApiCategoriaFinanceira {
+  id: number;
+  empresa_id: number;
+  parent_id: number | null;
+  codigo: string;
+  nome: string;
+  tipo: 'receita' | 'despesa';
+  nivel: number;
+}
+
+export interface ApiLancamentoFinanceiro {
+  id: number;
+  grupo_id: number;
+  empresa_id: number;
+  categoria_id: number;
+  categoria: ApiCategoriaFinanceira;
+  descricao: string;
+  fornecedor_cliente: string;
+  valor: number;
+  tipo: 'pagar' | 'receber';
+  status: 'pendente' | 'pago' | 'atrasado';
+  data_competencia: string;
+  data_vencimento: string;
+  data_pagamento: string | null;
+  conciliado: boolean;
+  id_transacao_bancaria: string | null;
+}
+
+export interface LancamentoInput {
+  empresa_id: number;
+  categoria_codigo: string;
+  descricao: string;
+  fornecedor_cliente: string;
+  valor: number;
+  tipo: 'pagar' | 'receber';
+  status: 'pendente' | 'pago' | 'atrasado';
+  data_competencia?: string;
+  data_vencimento: string;
+  data_pagamento?: string | null;
+}
+
+// ─── Financeiro: Notas Fiscais ─────────────────────────────────────────────────
+
+export interface NotaFiscal {
+  id: number;
+  grupo_id: number;
+  empresa_id: number;
+  tipo: 'saida' | 'entrada';
+  numero: string;
+  serie: string;
+  chave_acesso: string;
+  cliente_fornecedor: string;
+  categoria_id: number;
+  categoria_codigo: string;
+  categoria_nome: string;
+  valor: number;
+  data_emissao: string;
+  data_vencimento: string;
+  status: 'emitida' | 'pendente' | 'cancelada';
+  origem: 'financeiro' | 'estoque';
+  lancamento_id: number | null;
+}
+
+export interface NotaFiscalInput {
+  empresa_id: number;
+  tipo: 'saida' | 'entrada';
+  numero: string;
+  serie: string;
+  chave_acesso?: string;
+  cliente_fornecedor: string;
+  categoria_codigo: string;
+  valor: number;
+  data_emissao: string;
+  data_vencimento: string;
+  status: 'emitida' | 'pendente' | 'cancelada';
+  origem?: 'financeiro' | 'estoque';
+}
+
 // ─── API ─────────────────────────────────────────────────────────────────────
 
 export const api = {
@@ -269,6 +352,13 @@ export const api = {
       request<HRStat[]>(`/api/usuarios/stats?empresa_id=${empresaId}`),
     empresas: (id: number) =>
       request<{ empresas: Empresa[] }>(`/api/usuarios/${id}/empresas`),
+    getModulos: (id: number) =>
+      request<{ modulos: string[]; is_default: boolean }>(`/api/usuarios/${id}/modulos`),
+    setModulos: (id: number, modulos: string[]) =>
+      request<{ message: string; count: number }>(`/api/usuarios/${id}/modulos`, {
+        method: 'PUT',
+        body: JSON.stringify({ modulos }),
+      }),
   },
 
   ponto: {
@@ -283,6 +373,35 @@ export const api = {
       request<{ message: string }>(`/api/ponto/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id: number) =>
       request<{ message: string }>(`/api/ponto/${id}`, { method: 'DELETE' }),
+  },
+
+  notasFiscais: {
+    list: (empresaId: number, tipo?: 'saida' | 'entrada') =>
+      request<{ notas: NotaFiscal[] }>(
+        `/api/notas-fiscais?empresa_id=${empresaId}${tipo ? `&tipo=${tipo}` : ''}`
+      ),
+    create: (data: NotaFiscalInput) =>
+      request<NotaFiscal>('/api/notas-fiscais', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: number, data: Partial<NotaFiscalInput>) =>
+      request<NotaFiscal>(`/api/notas-fiscais/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (id: number) =>
+      request<{ message: string }>(`/api/notas-fiscais/${id}`, { method: 'DELETE' }),
+  },
+
+  categorias: {
+    list: (empresaId: number) =>
+      request<{ categorias: ApiCategoriaFinanceira[] }>(`/api/categorias-financeiras?empresa_id=${empresaId}`),
+  },
+
+  lancamentos: {
+    list: (empresaId: number) =>
+      request<{ lancamentos: ApiLancamentoFinanceiro[] }>(`/api/lancamentos?empresa_id=${empresaId}`),
+    create: (data: LancamentoInput) =>
+      request<ApiLancamentoFinanceiro>('/api/lancamentos', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: number, data: Partial<LancamentoInput>) =>
+      request<ApiLancamentoFinanceiro>(`/api/lancamentos/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (id: number) =>
+      request<{ message: string }>(`/api/lancamentos/${id}`, { method: 'DELETE' }),
   },
 
   modulos: {

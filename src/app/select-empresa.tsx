@@ -3,7 +3,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   Modal,
-  Platform,
   ScrollView,
   Text,
   TextInput,
@@ -17,6 +16,7 @@ import { api, AcessoUsuario, Empresa, EmpresaInput, Grupo, MODULOS, MODULOS_INFO
 import { encodeId } from '../services/idHash';
 import { AppHeader } from '@/components/layout/app-header';
 import { LoadingOverlay } from '@/components/ui/loading-overlay';
+import { ConfirmDeleteModal } from '@/components/ui/confirm-delete-modal';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -59,19 +59,17 @@ const PERFIL_LABEL: Record<string, string> = {
   admin: 'Admin',
 };
 
-// ─── CNPJ helpers ────────────────────────────────────────────────────────────
-
 function maskCNPJ(value: string): string {
-  const d = value.replace(/\D/g, '').slice(0, 14);
-  return d
-    .replace(/^(\d{2})(\d)/, '$1.$2')
-    .replace(/^(\d{2}\.\d{3})(\d)/, '$1.$2')
-    .replace(/^(\d{2}\.\d{3}\.\d{3})(\d)/, '$1/$2')
-    .replace(/^(\d{2}\.\d{3}\.\d{3}\/\d{4})(\d)/, '$1-$2');
+  const clean = value.replace(/[.\-/]/g, '').slice(0, 14);
+  return clean
+    .replace(/^(.{2})(.+)/, '$1.$2')
+    .replace(/^(.{2}\..{3})(.+)/, '$1.$2')
+    .replace(/^(.{2}\..{3}\..{3})(.+)/, '$1/$2')
+    .replace(/^(.{2}\..{3}\..{3}\/.{4})(.+)/, '$1-$2');
 }
 
 function validateCNPJ(cnpj: string): boolean {
-  return cnpj.replace(/\D/g, '').length === 14;
+  return cnpj.replace(/[.\-/]/g, '').trim().length === 14;
 }
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
@@ -93,6 +91,9 @@ export default function SelectEmpresaScreen() {
   const [acessosModal, setAcessosModal] = useState<AcessosModal>(EMPTY_ACESSOS);
   const [loadingAcessos, setLoadingAcessos] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [grupoToDelete, setGrupoToDelete] = useState<Grupo | null>(null);
+  const [empresaToDelete, setEmpresaToDelete] = useState<Empresa | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const isDev = getPerfil() === 'dev';
   const isMaster = getPerfil() === 'master';
   const canManage = isDev || isMaster;
@@ -146,15 +147,19 @@ export default function SelectEmpresaScreen() {
     }
   };
 
-  const confirmDeleteGrupo = (g: Grupo) => {
-    const del = () => api.grupos.delete(g.id).then(load).catch((e: any) => Alert.alert('Erro', e.message));
-    if (Platform.OS === 'web') {
-      if (window.confirm(`Remover grupo "${g.nome}"?`)) del();
-    } else {
-      Alert.alert('Remover grupo', `Remover "${g.nome}"?`, [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Remover', style: 'destructive', onPress: del },
-      ]);
+  const confirmDeleteGrupo = (g: Grupo) => setGrupoToDelete(g);
+
+  const handleDeleteGrupo = async () => {
+    if (!grupoToDelete) return;
+    setDeleting(true);
+    try {
+      await api.grupos.delete(grupoToDelete.id);
+      setGrupoToDelete(null);
+      load();
+    } catch (e: any) {
+      Alert.alert('Erro', e.message);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -169,7 +174,7 @@ export default function SelectEmpresaScreen() {
         grupo_id: grupoId,
         nome_fantasia: nome_fantasia.trim(),
         razao_social: razao_social.trim(),
-        cnpj: cnpj.trim(),
+        cnpj: cnpj.replace(/[.\-/]/g, ''),
       };
       if (editing) {
         await api.empresas.update(editing.id, data);
@@ -185,15 +190,19 @@ export default function SelectEmpresaScreen() {
     }
   };
 
-  const confirmDeleteEmpresa = (e: Empresa) => {
-    const del = () => api.empresas.delete(e.id).then(load).catch((err: any) => Alert.alert('Erro', err.message));
-    if (Platform.OS === 'web') {
-      if (window.confirm(`Remover empresa "${e.nome_fantasia}"?`)) del();
-    } else {
-      Alert.alert('Remover empresa', `Remover "${e.nome_fantasia}"?`, [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Remover', style: 'destructive', onPress: del },
-      ]);
+  const confirmDeleteEmpresa = (e: Empresa) => setEmpresaToDelete(e);
+
+  const handleDeleteEmpresa = async () => {
+    if (!empresaToDelete) return;
+    setDeleting(true);
+    try {
+      await api.empresas.delete(empresaToDelete.id);
+      setEmpresaToDelete(null);
+      load();
+    } catch (e: any) {
+      Alert.alert('Erro', e.message);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -362,7 +371,7 @@ export default function SelectEmpresaScreen() {
                           <Text className="text-sm font-semibold text-gray-700 dark:text-gray-200" numberOfLines={1}>
                             {emp.nome_fantasia}
                           </Text>
-                          <Text className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{emp.cnpj}</Text>
+                          <Text className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{maskCNPJ(emp.cnpj)}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                           className="bg-indigo-50 dark:bg-indigo-950 px-3 py-1.5 rounded-md"
@@ -381,7 +390,7 @@ export default function SelectEmpresaScreen() {
                             </TouchableOpacity>
                           </>
                         )}
-                        <TouchableOpacity className="p-1" onPress={() => setEmpresaModal({ visible: true, editing: emp, grupoId: emp.grupo_id, nome_fantasia: emp.nome_fantasia, razao_social: emp.razao_social, cnpj: emp.cnpj })} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                        <TouchableOpacity className="p-1" onPress={() => setEmpresaModal({ visible: true, editing: emp, grupoId: emp.grupo_id, nome_fantasia: emp.nome_fantasia, razao_social: emp.razao_social, cnpj: maskCNPJ(emp.cnpj) })} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                           <Ionicons name="create-outline" size={16} color={isDark ? '#6b7280' : '#6b7280'} />
                         </TouchableOpacity>
                         <TouchableOpacity className="p-1" onPress={() => confirmDeleteEmpresa(emp)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -420,6 +429,8 @@ export default function SelectEmpresaScreen() {
               onChangeText={(v) => setGrupoModal(p => ({ ...p, nome: v }))}
               placeholder="Ex: Grupo Alfa"
               placeholderTextColor={ph}
+              returnKeyType="done"
+              onSubmitEditing={saveGrupo}
               autoFocus
             />
             <View className="flex-row gap-2.5 mt-5">
@@ -475,34 +486,22 @@ export default function SelectEmpresaScreen() {
             </View>
 
             {/* CNPJ */}
-            {(() => {
-              const digits = empresaModal.cnpj.replace(/\D/g, '');
-              const invalido = digits.length === 14 && !validateCNPJ(empresaModal.cnpj);
-              return (
-                <View className="mb-3">
-                  <View className="flex-row justify-between items-center mb-1.5">
-                    <Text className="text-xs text-gray-500 dark:text-gray-400">CNPJ</Text>
-                    <Text className="text-xs text-gray-400 dark:text-gray-500">{digits.length}/14</Text>
-                  </View>
-                  <TextInput
-                    className={`h-11 border rounded-lg px-3 text-base bg-white dark:bg-gray-900 ${invalido ? 'border-red-400 bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300' : 'border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-100'}`}
-                    style={{ outline: 'none' } as any}
-                    value={empresaModal.cnpj}
-                    onChangeText={(v) => setEmpresaModal(p => ({ ...p, cnpj: maskCNPJ(v) }))}
-                    placeholder="00.000.000/0001-00"
-                    placeholderTextColor={ph}
-                    keyboardType="numeric"
-                    maxLength={18}
-                  />
-                  {invalido && (
-                    <View className="flex-row items-center gap-1 mt-1">
-                      <Ionicons name="alert-circle-outline" size={13} color="#dc2626" />
-                      <Text className="text-xs text-red-600 dark:text-red-400">CNPJ inválido. Verifique os dígitos.</Text>
-                    </View>
-                  )}
-                </View>
-              );
-            })()}
+            <View className="mb-3">
+              <View className="flex-row justify-between items-center mb-1.5">
+                <Text className="text-xs text-gray-500 dark:text-gray-400">CNPJ</Text>
+                <Text className="text-xs text-gray-400 dark:text-gray-500">{empresaModal.cnpj.replace(/[.\-/]/g, '').length}/14</Text>
+              </View>
+              <TextInput
+                className="h-11 border border-gray-300 dark:border-gray-600 rounded-lg px-3 text-base bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100"
+                style={{ outline: 'none' } as any}
+                value={empresaModal.cnpj}
+                onChangeText={(v) => setEmpresaModal(p => ({ ...p, cnpj: maskCNPJ(v) }))}
+                placeholder="Ex: 00.000.000/0001-00"
+                placeholderTextColor={ph}
+                maxLength={18}
+                autoCapitalize="characters"
+              />
+            </View>
 
             <View className="flex-row gap-2.5 mt-5">
               <TouchableOpacity
@@ -690,6 +689,34 @@ export default function SelectEmpresaScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* ── Modal Confirmar Exclusão de Grupo ────────────────────────────── */}
+      <ConfirmDeleteModal
+        visible={!!grupoToDelete}
+        message={
+          <>
+            Você está prestes a remover o grupo{' '}
+            <Text className="font-bold text-gray-700 dark:text-gray-200">{grupoToDelete?.nome}</Text>.
+          </>
+        }
+        loading={deleting}
+        onCancel={() => setGrupoToDelete(null)}
+        onConfirm={handleDeleteGrupo}
+      />
+
+      {/* ── Modal Confirmar Exclusão de Empresa ──────────────────────────── */}
+      <ConfirmDeleteModal
+        visible={!!empresaToDelete}
+        message={
+          <>
+            Você está prestes a remover a empresa{' '}
+            <Text className="font-bold text-gray-700 dark:text-gray-200">{empresaToDelete?.nome_fantasia}</Text>.
+          </>
+        }
+        loading={deleting}
+        onCancel={() => setEmpresaToDelete(null)}
+        onConfirm={handleDeleteEmpresa}
+      />
 
       <LoadingOverlay visible={loading || saving} message={saving ? 'Salvando' : undefined} />
     </View>

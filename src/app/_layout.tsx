@@ -62,6 +62,7 @@ export default function RootLayout() {
           <Stack.Screen name="funcionarios" />
           <Stack.Screen name="ponto" />
           <Stack.Screen name="financeiro" />
+          <Stack.Screen name="estoque" />
         </Stack>
         <AuthGuard />
       </ThemeProvider>

@@ -10,11 +10,11 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from 'nativewind';
 import * as XLSX from 'xlsx';
-import { AppHeader } from '@/components/layout/app-header';
+import { ModuleHeader } from '@/components/layout/module-header';
 import { LoadingOverlay } from '@/components/ui/loading-overlay';
 import { api, Batida, RegistroPonto, Usuario } from '@/services/api';
 import { decodeId } from '@/services/idHash';
@@ -172,9 +172,10 @@ export default function PontoScreen() {
   const isDark = colorScheme === 'dark';
   const { width } = useWindowDimensions();
   const isMobile = width < 640;
-  const params = useLocalSearchParams<{ empresaId: string; empresaName: string }>();
+  const params = useLocalSearchParams<{ empresaId: string; empresaName: string; grupoId: string }>();
   const empresaId = decodeId(params.empresaId);
   const empresaName = params.empresaName ?? '';
+  const grupoId = decodeId(params.grupoId);
 
   const [dateFrom, setDateFrom] = useState(defaultDateFrom);
   const [dateTo, setDateTo] = useState(defaultDateTo);
@@ -468,23 +469,9 @@ export default function PontoScreen() {
         />
       )}
 
-      <AppHeader />
+      <ModuleHeader title="Controle de Ponto" empresaId={empresaId} empresaName={empresaName} grupoId={grupoId} />
 
       <ScrollView contentContainerStyle={{ padding: isMobile ? 12 : 24, paddingTop: isMobile ? 16 : 28 }}>
-
-        {/* Título + back */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-          <TouchableOpacity
-            onPress={() => router.push({ pathname: '/hub' as any, params: { empresaId: params.empresaId, empresaName } })}
-            style={{ padding: 6, borderRadius: 8, backgroundColor: isDark ? '#1f2937' : '#f1f5f9' }}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="chevron-back" size={18} color={isDark ? '#9ca3af' : '#6b7280'} />
-          </TouchableOpacity>
-          <Text style={{ fontSize: 18, fontWeight: '700', color: isDark ? '#fff' : '#1e2d6e' }}>
-            Controle de Ponto
-          </Text>
-        </View>
 
         {/* Seletores */}
         <View style={{ flexDirection: isMobile ? 'column' : 'row', gap: 12, marginBottom: 20, zIndex: 300 }}>

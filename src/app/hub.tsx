@@ -11,7 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from 'nativewind';
 import { AppHeader } from '@/components/layout/app-header';
-import { api, Empresa, getNome, getPerfil, getEmpresaId, getUserId, MODULOS } from '@/services/api';
+import { api, Empresa, getNome, getPerfil, getEmpresaId, getUserId, MODULOS, Modulo } from '@/services/api';
 import { decodeId, encodeId } from '@/services/idHash';
 
 export default function HubScreen() {
@@ -91,9 +91,29 @@ export default function HubScreen() {
 
   useEffect(() => {
     if (!empresaAtual.id) return;
-    api.modulos.get(empresaAtual.id)
-      .then((res) => setModulosHabilitados(res.modulos))
-      .catch(() => setModulosHabilitados([...MODULOS]));
+    const perfil = getPerfil();
+    const fetchModulos = async () => {
+      try {
+        const empresaRes = await api.modulos.get(empresaAtual.id);
+        const empresaModulos = empresaRes.modulos;
+        // dev e master enxergam todos os módulos habilitados da empresa
+        if (perfil === 'dev' || perfil === 'master') {
+          setModulosHabilitados(empresaModulos);
+          return;
+        }
+        // admin e funcionario: interseção entre módulos da empresa e do usuário
+        const userId = getUserId();
+        if (userId) {
+          const userRes = await api.usuarios.getModulos(userId);
+          setModulosHabilitados(empresaModulos.filter(m => userRes.modulos.includes(m)));
+        } else {
+          setModulosHabilitados(empresaModulos);
+        }
+      } catch {
+        setModulosHabilitados([...MODULOS]);
+      }
+    };
+    fetchModulos();
   }, [empresaAtual.id]);
 
   const trocarEmpresa = (e: Empresa) => {
@@ -310,7 +330,7 @@ export default function HubScreen() {
             </View>}
 
             {/* Card Financeiro */}
-            <View style={{
+            {modulosHabilitados.includes('financeiro') && <View style={{
               width: isMobile ? '100%' : 300,
               height: isMobile ? undefined : 300,
               backgroundColor: isDark ? '#1C1F2E' : '#fff',
@@ -359,7 +379,59 @@ export default function HubScreen() {
               >
                 <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Acessar</Text>
               </TouchableOpacity>
-            </View>
+            </View>}
+
+            {/* Card Estoque */}
+            {modulosHabilitados.includes('estoque') && <View style={{
+              width: isMobile ? '100%' : 300,
+              height: isMobile ? undefined : 300,
+              backgroundColor: isDark ? '#1C1F2E' : '#fff',
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: isDark ? '#374151' : '#e2e5ea',
+              padding: isMobile ? 16 : 24,
+              gap: 16,
+              justifyContent: 'space-between',
+            }}>
+              {/* Ícone + Data */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <View style={{
+                  width: 44, height: 44, borderRadius: 12,
+                  backgroundColor: '#f3e8ff',
+                  alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Ionicons name="cube-outline" size={24} color="#7c3aed" />
+                </View>
+                <Text style={{ fontSize: 13, color: '#6b7280', flex: 1 }}>
+                  {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                </Text>
+              </View>
+
+              {/* Título */}
+              <View style={{ gap: 4 }}>
+                <Text style={{ fontSize: 28, fontWeight: '700', color: isDark ? '#fff' : '#1e2d6e' }}>
+                  Estoque
+                </Text>
+                <Text style={{ fontSize: 14, color: '#6b7280' }}>
+                  SKUs, movimentações, inventário e alertas
+                </Text>
+              </View>
+
+              {/* Botão */}
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#7c3aed',
+                  borderRadius: 8,
+                  height: 44,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                activeOpacity={0.85}
+                onPress={() => router.push({ pathname: '/estoque' as any, params: { empresaId: encodeId(empresaAtual.id), empresaName: empresaAtual.nome, grupoId: encodeId(grupoId) } })}
+              >
+                <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Acessar</Text>
+              </TouchableOpacity>
+            </View>}
 
           </View>
         </View>

@@ -1,93 +1,125 @@
-# Operkit — Frontend
+# Operkit
 
-Aplicativo móvel e web do projeto Operkit, desenvolvido com Expo (React Native) e Expo Router.
+Sistema ERP modular multi-empresa com frontend React Native (Expo) e backend Go.
 
-## Tecnologias
+## Visão Geral
 
-- **Expo SDK 55** — plataforma React Native
-- **Expo Router** — navegação file-based
-- **NativeWind 4** — Tailwind CSS para React Native
-- **TypeScript** — tipagem estática
-- **React Native Reanimated** — animações fluidas
+O Operkit é uma plataforma ERP que suporta múltiplos grupos e empresas, com autenticação JWT e uma interface multiplataforma (iOS, Android e Web).
 
-## Estrutura de pastas
+## Estrutura do Projeto
 
 ```
-src/
-├── app/                          # Telas (Expo Router — file-based routing)
-│   ├── _layout.tsx               # Layout raiz: ThemeInitializer + AuthGuard + Stack
-│   ├── index.tsx                 # Tela de login
-│   ├── select-empresa.tsx        # Seleção de empresa (apenas perfil dev)
-│   ├── hub.tsx                   # Hub principal pós-login
-│   └── funcionarios.tsx          # Gestão de funcionários/usuários
-│
-├── components/
-│   ├── layout/
-│   │   └── app-header.tsx        # Header global: logo, tema, avatar, logout
-│   └── ui/
-│       └── loading-overlay.tsx   # Overlay de carregamento animado
-│
-├── constants/
-│   └── theme.ts                  # Paleta de cores (light/dark), fontes e espaçamentos
-│
-└── services/
-    └── api.ts                    # Cliente HTTP: autenticação, storage e endpoints REST
+operkit/
+├── backend/          # API REST em Go
+├── frontend/         # App React Native com Expo
+├── exemple/          # Mockups de referência de UI
+└── docker-compose.yml
 ```
 
-## Fluxo de navegação
+## Stack
 
+| Camada     | Tecnologia                                        |
+|------------|---------------------------------------------------|
+| Frontend   | React Native 0.83, Expo 55, TypeScript, NativeWind |
+| Backend    | Go 1.23, Gin, GORM                                |
+| Banco      | PostgreSQL 15                                     |
+| Storage    | MinIO (S3-compatible)                             |
+| Auth       | JWT (HS256, 24h)                                  |
+
+## Pré-requisitos
+
+- [Go 1.23+](https://go.dev/)
+- [Node.js 18+](https://nodejs.org/)
+- [Docker](https://www.docker.com/) e Docker Compose
+
+## Rodando Localmente
+
+### 1. Serviços (banco + storage)
+
+```bash
+docker compose up -d
 ```
-/                  → index.tsx         (login)
-  ↓ perfil dev
-/select-empresa    → select-empresa.tsx
-  ↓
-/hub               → hub.tsx           (dashboard)
-  ↓
-/funcionarios      → funcionarios.tsx
 
-/hub               ← login direto para admin/funcionario
+Isso sobe:
+- **PostgreSQL** na porta `5432` (usuário: `operkit`, senha: `password`, banco: `operkit_dev`)
+- **MinIO** na porta `9000` (console em `9001`, usuário: `admin`, senha: `password123`)
+
+### 2. Backend
+
+```bash
+cd backend
+go run .
 ```
 
-## Perfis de usuário
+A API ficará disponível em `http://localhost:8080`.
 
-| Perfil        | Redirect pós-login    | Acesso                                     |
-|---------------|-----------------------|--------------------------------------------|
-| `dev`         | `/select-empresa`     | Seleciona grupo e empresa manualmente      |
-| `admin`       | `/hub`                | Hub da empresa vinculada ao seu cadastro   |
-| `funcionario` | `/hub`                | Hub da empresa vinculada ao seu cadastro   |
+Variáveis de ambiente opcionais (via `.env`):
 
-## Autenticação
+| Variável      | Padrão                      | Descrição                  |
+|---------------|-----------------------------|----------------------------|
+| `JWT_SECRET`  | `REDACTED`  | Chave de assinatura JWT    |
+| `DB_DSN`      | —                           | DSN de conexão PostgreSQL  |
 
-O token JWT e os dados do usuário logado (`nome`, `perfil`, `empresa_id`) são salvos no `localStorage` (web) via `src/services/api.ts`. O `AuthGuard` em `_layout.tsx` redireciona para login caso o token não esteja presente em rotas protegidas.
-
-## Como rodar
-
-### Pré-requisitos
-
-- Node.js 18+
-- Backend rodando em `http://192.168.18.152:8080` (ver `backend/README.md`)
-
-### Instalar dependências
+### 3. Frontend
 
 ```bash
 cd frontend
 npm install
-```
-
-### Iniciar o servidor de desenvolvimento
-
-```bash
 npx expo start
 ```
 
-Pressione `w` para abrir no browser, `a` para Android ou `i` para iOS.
+Abra no:
+- **iOS**: `i` no terminal ou app Expo Go
+- **Android**: `a` no terminal ou app Expo Go
+- **Web**: `w` no terminal
 
-## Variáveis de ambiente
+## API
 
-A URL da API é definida em `.env.local` ou via fallback em `src/services/api.ts`:
+### Autenticação
 
-```ts
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.18.152:8080';
+```
+POST /api/login
+Body: { "username": "...", "senha": "..." }
 ```
 
-Altere esse valor conforme o ambiente de deploy.
+Retorna um token JWT a ser enviado no header `Authorization: Bearer <token>`.
+
+### Endpoints protegidos
+
+| Método | Rota                  | Descrição                        |
+|--------|-----------------------|----------------------------------|
+| GET    | `/api/modules`        | Módulos disponíveis              |
+| GET    | `/api/grupos`         | Listar grupos                    |
+| POST   | `/api/grupos`         | Criar grupo                      |
+| PUT    | `/api/grupos/:id`     | Atualizar grupo                  |
+| DELETE | `/api/grupos/:id`     | Remover grupo                    |
+| GET    | `/api/empresas`       | Listar empresas (filtro: `grupo_id`) |
+| POST   | `/api/empresas`       | Criar empresa                    |
+| PUT    | `/api/empresas/:id`   | Atualizar empresa                |
+| DELETE | `/api/empresas/:id`   | Remover empresa                  |
+| GET    | `/api/usuarios`       | Listar usuários                  |
+| POST   | `/api/usuarios`       | Criar usuário                    |
+| PUT    | `/api/usuarios/:id`   | Atualizar usuário                |
+| DELETE | `/api/usuarios/:id`   | Remover usuário                  |
+
+### Health check
+
+```
+GET /ping  →  "pong"
+```
+
+## Modelos
+
+**Grupo** — agrupamento de empresas  
+**Empresa** — NomeFantasia, RazaoSocial, CNPJ, vinculada a um Grupo  
+**Usuario** — perfis: `admin`, `funcionario`, `dev`; vinculado a uma Empresa
+
+## Fluxo de Autenticação
+
+1. Login → recebe JWT + redirecionamento baseado no perfil
+2. Se o usuário tem acesso a múltiplas empresas → tela `select-empresa`
+3. Token armazenado no `localStorage` (web) ou memória (mobile)
+
+## Licença
+
+MIT © 2026 Alex Silva

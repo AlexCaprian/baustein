@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -18,8 +18,10 @@ import { LoadingOverlay } from '@/components/ui/loading-overlay';
 function friendlyError(raw: string): string {
   if (raw === 'NETWORK_ERROR')
     return 'Não foi possível conectar ao servidor. Verifique sua conexão ou tente mais tarde.';
-  if (raw.toLowerCase().includes('usuário ou senha'))
+  if (raw === 'UNAUTHORIZED' || raw.toLowerCase().includes('usuário ou senha') || raw.toLowerCase().includes('inválid'))
     return 'Usuário ou senha incorretos. Verifique seus dados e tente novamente.';
+  if (raw.toLowerCase().includes('funcionário') || raw.toLowerCase().includes('web não disponível'))
+    return 'Acesso ao sistema web não disponível para funcionários.';
   if (raw.toLowerCase().includes('informe'))
     return 'Preencha todos os campos antes de continuar.';
   return 'Ocorreu um erro inesperado. Tente novamente em instantes.';
@@ -30,6 +32,8 @@ export default function LoginScreen() {
   const isDark = colorScheme === 'dark';
   const { width } = useWindowDimensions();
   const isMobile = width < 640;
+
+  const passwordRef = useRef<TextInput>(null);
 
   const [usuario, setUsuario] = useState('');
   const [password, setPassword] = useState('');
@@ -106,6 +110,7 @@ export default function LoginScreen() {
               placeholderTextColor={ph}
               underlineColorAndroid="transparent"
               returnKeyType="next"
+              onSubmitEditing={() => passwordRef.current?.focus()}
             />
           </View>
         </View>
@@ -115,6 +120,7 @@ export default function LoginScreen() {
           <Text className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Senha</Text>
           <View className={`${wrapperBase} ${campoErro === 'senha' ? 'border-red-400 bg-red-50 dark:bg-red-950/30' : 'border-gray-300 dark:border-gray-700'}`}>
             <TextInput
+              ref={passwordRef}
               className={inputBase}
               style={{ outline: 'none' } as any}
               secureTextEntry={!showPassword}

@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
@@ -13,9 +13,9 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from 'nativewind';
-import { AppHeader } from '@/components/layout/app-header';
+import { ModuleHeader } from '@/components/layout/module-header';
 import { LoadingOverlay } from '@/components/ui/loading-overlay';
-import { api, getPerfil, Usuario, UsuarioInput } from '../services/api';
+import { api, Usuario, UsuarioInput, MODULOS, MODULOS_INFO } from '../services/api';
 import { decodeId } from '../services/idHash';
 
 const PAGE_LIMIT = 20;
@@ -76,7 +76,7 @@ export default function FuncionariosScreen() {
   const params = useLocalSearchParams<{ empresaId: string; empresaName: string; grupoId: string }>();
   const empresaId = decodeId(params.empresaId);
   const empresaName = params.empresaName ?? 'Empresa';
-  const isDev = getPerfil() === 'dev';
+  const grupoId = decodeId(params.grupoId);
 
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [loading, setLoading] = useState(true);
@@ -94,6 +94,8 @@ export default function FuncionariosScreen() {
   const [editForm, setEditForm] = useState(EMPTY_FORM);
   const [showEditSenha, setShowEditSenha] = useState(false);
   const [editErro, setEditErro] = useState('');
+  const [empresaModulos, setEmpresaModulos] = useState<string[]>([...MODULOS]);
+  const [editModulos, setEditModulos] = useState<string[]>([...MODULOS]);
   const [form, setForm] = useState(EMPTY_FORM);
   const [showSenha, setShowSenha] = useState(false);
   const [erro, setErro] = useState('');
@@ -131,6 +133,13 @@ export default function FuncionariosScreen() {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    if (!empresaId) return;
+    api.modulos.get(empresaId)
+      .then(res => setEmpresaModulos(res.modulos))
+      .catch(() => setEmpresaModulos([...MODULOS]));
+  }, [empresaId]);
+
   // Filtro de perfil aplicado client-side dentro da página atual
   const filtered = useMemo(() => usuarios.filter(u =>
     filterPerfil === 'todos' || u.perfil === filterPerfil
@@ -163,11 +172,19 @@ export default function FuncionariosScreen() {
     }
   };
 
-  const openEditModal = (u: Usuario) => {
+  const openEditModal = async (u: Usuario) => {
     setUserToEdit(u);
     setEditForm({ nome: u.nome, username: u.username, email: u.email, senha: '', perfil: u.perfil, hora_trabalha: htToInput(u.hora_trabalha ?? 8) });
     setEditErro('');
     setShowEditSenha(false);
+    if (u.perfil === 'admin') {
+      try {
+        const res = await api.usuarios.getModulos(u.id);
+        setEditModulos(res.modulos);
+      } catch {
+        setEditModulos([...empresaModulos]);
+      }
+    }
     setEditModalVisible(true);
   };
 
@@ -189,6 +206,9 @@ export default function FuncionariosScreen() {
       };
       if (editForm.senha.trim()) data.senha = editForm.senha;
       await api.usuarios.update(userToEdit.id, data);
+      if (editForm.perfil === 'admin') {
+        await api.usuarios.setModulos(userToEdit.id, editModulos);
+      }
       setEditModalVisible(false);
       setUserToEdit(null);
       load();
@@ -221,7 +241,11 @@ export default function FuncionariosScreen() {
 
   return (
     <View className="flex-1 bg-slate-100 dark:bg-gray-950">
-      <AppHeader
+      <ModuleHeader
+        title="Funcionários"
+        empresaId={empresaId}
+        empresaName={empresaName}
+        grupoId={grupoId}
         right={
           <TouchableOpacity
             className="flex-row items-center gap-1.5 bg-[#3b5fe0] rounded-lg"
@@ -237,29 +261,6 @@ export default function FuncionariosScreen() {
 
       <ScrollView contentContainerStyle={{ padding: 24 }}>
         <View style={{ width: '100%', maxWidth: 1200, alignSelf: 'center' }}>
-
-          {/* Título + back */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-            <TouchableOpacity
-              onPress={() => router.push({ pathname: '/hub', params: { empresaId: params.empresaId, empresaName: params.empresaName, grupoId: params.grupoId } } as any)}
-              style={{ padding: 6, borderRadius: 8, backgroundColor: isDark ? '#1f2937' : '#f1f5f9' }}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="chevron-back" size={18} color={isDark ? '#9ca3af' : '#6b7280'} />
-            </TouchableOpacity>
-            <Text style={{ fontSize: 18, fontWeight: '700', color: isDark ? '#fff' : '#1e2d6e' }}>
-              Funcionários
-            </Text>
-            {isDev && (
-              <TouchableOpacity
-                onPress={() => router.replace('/select-empresa' as any)}
-                style={{ marginLeft: 'auto', padding: 6, borderRadius: 8, backgroundColor: isDark ? '#1f2937' : '#f1f5f9' }}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="business-outline" size={16} color={isDark ? '#9ca3af' : '#6b7280'} />
-              </TouchableOpacity>
-            )}
-          </View>
 
           {/* Busca + filtros */}
           <View className="mb-4" style={{ gap: 8 }}>
@@ -738,6 +739,35 @@ export default function FuncionariosScreen() {
                 ))}
               </View>
             </View>
+
+            {/* Módulos (só para admin) */}
+            {editForm.perfil === 'admin' && (
+              <View className="mb-4">
+                <Text className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Módulos com acesso</Text>
+                <View className="flex-row flex-wrap gap-2">
+                  {empresaModulos.map(modulo => {
+                    const info = MODULOS_INFO[modulo as keyof typeof MODULOS_INFO];
+                    const ativo = editModulos.includes(modulo);
+                    return (
+                      <TouchableOpacity
+                        key={modulo}
+                        onPress={() => setEditModulos(prev =>
+                          prev.includes(modulo) ? prev.filter(m => m !== modulo) : [...prev, modulo]
+                        )}
+                        className={`flex-row items-center gap-1.5 px-3 py-1.5 rounded-lg border ${ativo ? 'border-transparent' : 'border-gray-200 dark:border-gray-600'}`}
+                        style={ativo ? { backgroundColor: info?.bgColor ?? '#eef1fd' } : undefined}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name={info?.icon as any ?? 'apps-outline'} size={13} color={ativo ? (info?.color ?? '#3b5fe0') : '#9ca3af'} />
+                        <Text className={`text-xs font-medium ${ativo ? '' : 'text-gray-400 dark:text-gray-500'}`} style={ativo ? { color: info?.color ?? '#3b5fe0' } : undefined}>
+                          {info?.label ?? modulo}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
 
             {/* Erro */}
             {!!editErro && (
